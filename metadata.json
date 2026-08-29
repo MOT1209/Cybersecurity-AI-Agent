@@ -1,0 +1,6 @@
+{
+  "name": "CyberAgent AI - Ethical Hacking & Security Workbench",
+  "description": "منصة ذكاء اصطناعي تفاعلية متخصصة في الأمن السيبراني والاختراق الأخلاقي، مراجعة الأكواد، محاكاة الأدوات والتدريب المتقدم.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,372 @@
+<title>خارطة طريق CyberAgent AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  /* Deliberately single-world: dark "security console" identity, matches the app.
+     Every color is painted explicitly so it holds on any host ground. */
+  :root {
+    --ground: #070b14;
+    --surface: #0e1524;
+    --surface-2: #141d30;
+    --line: #23304a;
+    --ink: #e6edf7;
+    --muted: #8497b2;
+    --faint: #5a6b87;
+    --cyan: #22d3ee;
+    --emerald: #34d399;
+    --amber: #fbbf24;
+    --rose: #fb7185;
+    --violet: #a78bfa;
+    --glow: 0 0 0 1px rgba(34,211,238,.15), 0 12px 40px -12px rgba(34,211,238,.25);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(34,211,238,.10), transparent 60%),
+      radial-gradient(900px 500px at 0% 10%, rgba(52,211,153,.07), transparent 55%),
+      var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans Arabic", "Tajawal", system-ui, sans-serif;
+    line-height: 1.7;
+    direction: rtl;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; direction: ltr; unicode-bidi: isolate; }
+  .eyebrow {
+    font-family: "JetBrains Mono", monospace; direction: ltr;
+    font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--cyan); display: inline-flex; align-items: center; gap: 8px;
+  }
+  .eyebrow::before { content: ""; width: 26px; height: 1px; background: var(--cyan); opacity: .6; }
+
+  /* ---- HERO ---- */
+  header.hero {
+    border-bottom: 1px solid var(--line);
+    background:
+      linear-gradient(180deg, rgba(20,29,48,.6), transparent),
+      repeating-linear-gradient(0deg, transparent 0 3px, rgba(34,211,238,.02) 3px 4px);
+    padding: 68px 0 52px;
+  }
+  .hero .term {
+    font-family: "JetBrains Mono", monospace; direction: ltr;
+    color: var(--emerald); font-size: 13px; margin-bottom: 26px;
+    border: 1px solid var(--line); background: rgba(7,11,20,.7);
+    border-radius: 10px; padding: 12px 16px; box-shadow: var(--glow);
+    max-width: 560px;
+  }
+  .hero .term .c { color: var(--faint); }
+  .hero .term .p { color: var(--cyan); }
+  h1 {
+    font-family: "Tajawal", sans-serif; font-weight: 800;
+    font-size: clamp(2.1rem, 5.5vw, 3.6rem); line-height: 1.12;
+    margin: 0 0 18px; text-wrap: balance; letter-spacing: -.01em;
+  }
+  h1 .accent {
+    background: linear-gradient(120deg, var(--cyan), var(--emerald));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .lede { font-size: 1.16rem; color: var(--muted); max-width: 62ch; margin: 0; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+  .chip {
+    font-family: "JetBrains Mono", monospace; direction: ltr; font-size: 12px;
+    border: 1px solid var(--line); background: var(--surface);
+    padding: 7px 12px; border-radius: 999px; color: var(--muted);
+  }
+  .chip b { color: var(--cyan); font-weight: 600; }
+
+  /* ---- SECTION ---- */
+  section { padding: 56px 0; border-bottom: 1px solid rgba(35,48,74,.5); }
+  h2 {
+    font-family: "Tajawal", sans-serif; font-weight: 800;
+    font-size: clamp(1.5rem, 3.4vw, 2.1rem); margin: 14px 0 10px; text-wrap: balance;
+  }
+  h2 .n { color: var(--faint); font-family: "JetBrains Mono", monospace; font-size: .7em; margin-inline-end: 10px; }
+  .sec-intro { color: var(--muted); max-width: 64ch; margin: 0 0 28px; }
+
+  /* status columns */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 680px) { .cols { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 22px;
+  }
+  .panel h3 { margin: 0 0 12px; font-size: 1.02rem; display: flex; align-items: center; gap: 9px; font-family: "Tajawal"; font-weight: 700; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .panel ul { margin: 0; padding-inline-start: 18px; color: var(--muted); font-size: .95rem; }
+  .panel li { margin: 7px 0; }
+  .panel.now { border-color: rgba(251,113,133,.25); }
+  .panel.target { border-color: rgba(52,211,153,.28); }
+
+  /* timeline */
+  .phase {
+    display: grid; grid-template-columns: auto 1fr; gap: 20px;
+    padding: 20px 0; border-top: 1px solid var(--line);
+  }
+  .phase:first-child { border-top: none; }
+  .phase .tag {
+    font-family: "JetBrains Mono", monospace; direction: ltr;
+    font-size: 12px; color: var(--cyan); white-space: nowrap; padding-top: 4px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  }
+  .badge { font-size: 10px; padding: 3px 8px; border-radius: 6px; letter-spacing: .05em; }
+  .badge.done { background: rgba(52,211,153,.14); color: var(--emerald); border: 1px solid rgba(52,211,153,.3); }
+  .badge.next { background: rgba(34,211,238,.12); color: var(--cyan); border: 1px solid rgba(34,211,238,.3); }
+  .badge.later { background: rgba(90,107,135,.14); color: var(--faint); border: 1px solid var(--line); }
+  .phase .body h3 { margin: 0 0 6px; font-family: "Tajawal"; font-weight: 700; font-size: 1.14rem; }
+  .phase .body p { margin: 0; color: var(--muted); font-size: .96rem; }
+  .phase .body .items { margin: 10px 0 0; padding-inline-start: 18px; color: var(--muted); font-size: .92rem; }
+
+  /* agents table */
+  .tbl-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+  table { width: 100%; border-collapse: collapse; min-width: 640px; font-size: .92rem; }
+  th, td { text-align: right; padding: 13px 16px; border-bottom: 1px solid rgba(35,48,74,.6); }
+  thead th { background: var(--surface-2); color: var(--cyan); font-family: "Tajawal"; font-weight: 700; font-size: .82rem; letter-spacing: .03em; position: sticky; top: 0; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(34,211,238,.04); }
+  td.tools { font-family: "JetBrains Mono", monospace; direction: ltr; text-align: left; color: var(--emerald); font-size: .8rem; }
+  td .who { color: var(--ink); font-weight: 600; display: block; }
+  td .who small { color: var(--faint); font-weight: 400; }
+
+  /* tool catalog */
+  .cat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  @media (max-width: 680px) { .cat-grid { grid-template-columns: 1fr; } }
+  .cat {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 20px; position: relative; overflow: hidden;
+  }
+  .cat::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: 0; width: 3px; background: var(--accent, var(--cyan)); }
+  .cat h3 { margin: 0 0 4px; font-family: "Tajawal"; font-weight: 700; font-size: 1.05rem; }
+  .cat .sub { color: var(--faint); font-size: .82rem; margin: 0 0 12px; }
+  .taglist { display: flex; flex-wrap: wrap; gap: 7px; }
+  .taglist span {
+    font-family: "JetBrains Mono", monospace; direction: ltr; font-size: 11px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    padding: 4px 9px; border-radius: 7px; color: var(--muted);
+  }
+
+  /* ideas */
+  .ideas { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  @media (max-width: 680px) { .ideas { grid-template-columns: 1fr; } }
+  .idea {
+    border: 1px solid var(--line); border-radius: 14px; padding: 20px;
+    background: linear-gradient(180deg, var(--surface), var(--ground));
+  }
+  .idea .num { font-family: "JetBrains Mono", monospace; color: var(--violet); font-size: 13px; font-weight: 600; }
+  .idea h3 { margin: 6px 0 6px; font-family: "Tajawal"; font-weight: 700; font-size: 1.06rem; }
+  .idea p { margin: 0; color: var(--muted); font-size: .93rem; }
+
+  /* security matrix */
+  .sec-matrix { display: grid; gap: 12px; }
+  .rule {
+    display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: start;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px;
+  }
+  .rule .ic { font-family: "JetBrains Mono", monospace; color: var(--amber); font-weight: 600; font-size: 13px; padding-top: 2px; direction: ltr; }
+  .rule p { margin: 0; color: var(--muted); font-size: .93rem; }
+  .rule b { color: var(--ink); font-weight: 600; }
+
+  footer { padding: 40px 0 60px; color: var(--faint); font-size: .86rem; text-align: center; }
+  footer .mono { color: var(--muted); }
+  a { color: var(--cyan); }
+  ::selection { background: rgba(34,211,238,.28); color: #fff; }
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="term mono">
+      <span class="c">$</span> <span class="p">cyberagent</span> --mode agentic --lab local <span class="c">\</span><br>
+      <span class="c">›</span> initializing 12 agents · sandbox: docker · providers: claude+gemini+local
+    </div>
+    <span class="eyebrow">Strategic Roadmap · v1</span>
+    <h1>من عرض توضيحي إلى <span class="accent">منصة تعلّم واختراق agentic</span> حقيقية</h1>
+    <p class="lede">خارطة طريق كاملة لتطوير <b style="color:var(--ink)">CyberAgent AI</b>: تنفيذ حقيقي للأدوات في حاويات معزولة، حلقة وكلاء بحقيقة استدعاء الأدوات، ونواة تعليمية تمشي معك خطوة بخطوة — لتعلّم الأمن السيبراني والاختراق الأخلاقي.</p>
+    <div class="meta-row">
+      <span class="chip">التنفيذ: <b>Sandbox حقيقي</b></span>
+      <span class="chip">الهدف: <b>تعلّم + pentest</b></span>
+      <span class="chip">المحرك: <b>متعدد المزودين</b></span>
+      <span class="chip">المنفذ: <b>7799</b></span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- NOW vs TARGET -->
+  <section>
+    <span class="eyebrow">Baseline</span>
+    <h2>أين نحن الآن — وإلى أين نتجه</h2>
+    <p class="sec-intro">المشروع اليوم واجهة أنيقة فوق منطق محاكاة. الفجوة الحقيقية ليست في الشكل بل في العمق: لا تنفيذ فعلي، ولا ذاكرة، ولا حلقة وكلاء حقيقية. هذه الخطة تسدّها.</p>
+    <div class="cols">
+      <div class="panel now">
+        <h3><span class="dot" style="background:var(--rose)"></span> الوضع الحالي</h3>
+        <ul>
+          <li>الوكلاء الـ12 = <b>ميتاداتا</b> + ردود fallback ثابتة</li>
+          <li>الأدوات <b>محاكاة</b> — لا nmap/nuclei فعلي</li>
+          <li>الأوركستريتور يعيد خطة <b>مكتوبة سلفاً</b></li>
+          <li>كل الحالة <b>في الذاكرة</b> — تُفقد عند إعادة التشغيل</li>
+          <li>مزوّد AI واحد (Gemini) بلا استدعاء أدوات</li>
+        </ul>
+      </div>
+      <div class="panel target">
+        <h3><span class="dot" style="background:var(--emerald)"></span> المستهدف</h3>
+        <ul>
+          <li>وكلاء حقيقيون <b>يستدعون أدوات</b> ويقرؤون مخرجاتها</li>
+          <li>تنفيذ فعلي في <b>حاويات Docker معزولة</b></li>
+          <li>حلقة <b>Plan→Act→Observe→Reflect</b> ديناميكية</li>
+          <li>تخزين دائم (SQLite) + تتبّع تقدّم تعليمي</li>
+          <li>طبقة <b>Claude + Gemini + محلي</b> قابلة للتبديل</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section>
+    <span class="eyebrow">Architecture</span>
+    <h2>المعمارية المستهدفة</h2>
+    <p class="sec-intro">تدفّق واحد من نية المستخدم إلى نتيجة موثّقة — تمرّ كل أداة عبر بوابة الأمان قبل التنفيذ، ويُبثّ كل شيء حيّاً للواجهة.</p>
+    <div class="tbl-scroll" style="border:none">
+      <pre class="mono" style="margin:0;padding:22px;background:var(--surface);border:1px solid var(--line);border-radius:14px;color:var(--muted);font-size:12.5px;line-height:1.9;overflow-x:auto">
+ ┌────────────┐   ┌─────────────────┐   ┌──────────────────┐
+ │  React UI  │──▶│  Orchestrator   │──▶│  LLM Provider    │
+ │ (SSE live) │◀──│  agentic loop   │◀──│  claude│gemini   │
+ └────────────┘   └───────┬─────────┘   └──────────────────┘
+                          │ tool call
+                          ▼
+                  ┌───────────────┐   ┌──────────────────┐
+                  │ Security      │──▶│ Docker Sandbox   │
+                  │ Gateway (CIDR)│   │ nmap│nuclei│...   │
+                  └───────┬───────┘   └────────┬─────────┘
+                          │ deny/allow          │ target
+                          ▼                     ▼
+                  ┌───────────────┐   ┌──────────────────┐
+                  │ SQLite store  │   │ Local Lab        │
+                  │ runs│findings │   │ juice-shop│dvwa  │
+                  └───────────────┘   └──────────────────┘</pre>
+    </div>
+  </section>
+
+  <!-- AGENTS -->
+  <section>
+    <span class="eyebrow">Agents</span>
+    <h2>الوكلاء الـ12 — من ميتاداتا إلى أدوات حقيقية</h2>
+    <p class="sec-intro">كل وكيل يحتفظ بدوره الحالي، لكنه يُربط بمنفّذ أدوات فعلي داخل الـsandbox بدل النص الثابت.</p>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th>الوكيل</th><th>الدور</th><th>الأدوات الحقيقية</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="who">الاستطلاع<small> Recon</small></span></td><td>كشف الأصول والمنافذ وDNS</td><td class="tools">nmap · subfinder · httpx · dnsx</td></tr>
+          <tr><td><span class="who">أمان الويب<small> Web</small></span></td><td>فحص OWASP Top 10 وواجهات API</td><td class="tools">nuclei · zap · katana · ffuf</td></tr>
+          <tr><td><span class="who">تحليل الثغرات<small> Vuln</small></span></td><td>ربط CVE/CWE وحساب CVSS</td><td class="tools">nvd · vulners · cvss</td></tr>
+          <tr><td><span class="who">أمان الكود<small> Code</small></span></td><td>SAST + كشف الأسرار + SCA</td><td class="tools">semgrep · gitleaks · trivy-fs</td></tr>
+          <tr><td><span class="who">أمان الشبكات<small> Net</small></span></td><td>تحليل PCAP والبروتوكولات</td><td class="tools">tshark · zeek · tcpdump</td></tr>
+          <tr><td><span class="who">السحابة<small> Cloud</small></span></td><td>تدقيق IAM وتكوينات السحابة</td><td class="tools">prowler · scoutsuite</td></tr>
+          <tr><td><span class="who">الحاويات<small> Container</small></span></td><td>فحص صور Docker وK8s RBAC</td><td class="tools">trivy · kube-bench · dockle</td></tr>
+          <tr><td><span class="who">الأدلة الجنائية<small> Forensics</small></span></td><td>تحليل الذاكرة والسجلات</td><td class="tools">volatility · logparser</td></tr>
+          <tr><td><span class="who">استخبارات التهديد<small> Intel</small></span></td><td>ربط MITRE ATT&CK وIoCs</td><td class="tools">mitre · virustotal · otx</td></tr>
+          <tr><td><span class="who">الترقيع<small> Remediation</small></span></td><td>توليد شيفرات آمنة وقواعد تحصين</td><td class="tools">patch-gen · waf-synth</td></tr>
+          <tr><td><span class="who">التقارير<small> Reporting</small></span></td><td>تقارير PTES/OWASP/NIST</td><td class="tools">report-engine · pdf</td></tr>
+          <tr><td><span class="who">الاختبار<small> Testing</small></span></td><td>تحقّق ذاتي وضبط جودة المنصة</td><td class="tools">self-audit · retest</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section>
+    <span class="eyebrow">Roadmap</span>
+    <h2>مراحل التنفيذ</h2>
+    <p class="sec-intro">سبع مراحل متتابعة، كل واحدة قابلة للشحن والاختبار وحدها. المرحلة صفر أُنجزت فعلاً في جلسة الإصلاحات.</p>
+
+    <div class="phase">
+      <div class="tag mono">PHASE&nbsp;0<span class="badge done">DONE ✓</span></div>
+      <div class="body"><h3>أساس نظيف</h3><p>إصلاح المصادقة (apiFetch/x-api-key)، ضبط النموذج، تعقيم /api/health، vitest + CI، المنفذ 7799.</p></div>
+    </div>
+    <div class="phase">
+      <div class="tag mono">PHASE&nbsp;1<span class="badge next">NEXT</span></div>
+      <div class="body"><h3>الأساس المعماري</h3><p>تخزين دائم، طبقة تجريد AI متعددة المزودين، تفكيك server.ts.</p>
+        <ul class="items"><li>SQLite + Prisma بدل المخازن في الذاكرة</li><li>واجهة LLMProvider موحّدة (Claude/Gemini/محلي)</li><li>src/server/{routes,agents,tools,llm,db}</li></ul>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="tag mono">PHASE&nbsp;2<span class="badge later">PLANNED</span></div>
+      <div class="body"><h3>حلقة الوكلاء الحقيقية</h3><p>محرك tool-calling حقيقي + سجل أدوات + بث مباشر (SSE) + ذاكرة وكيل.</p></div>
+    </div>
+    <div class="phase">
+      <div class="tag mono">PHASE&nbsp;3<span class="badge later">PLANNED</span></div>
+      <div class="body"><h3>تنفيذ Sandbox (Docker)</h3><p>مشغّل حاويات معزول (dockerode)، تقوية البوابة بمطابقة CIDR، مختبر محلي جاهز، أول موجة أدوات حقيقية.</p></div>
+    </div>
+    <div class="phase">
+      <div class="tag mono">PHASE&nbsp;4<span class="badge later">PLANNED</span></div>
+      <div class="body"><h3>نواة التعلّم</h3><p>مسارات تعلّم، مولّد CTF بتتبّع تقدّم، وضع «المرشد» يشرح كل خطوة، مختبرات موجّهة.</p></div>
+    </div>
+    <div class="phase">
+      <div class="tag mono">PHASE&nbsp;5<span class="badge later">PLANNED</span></div>
+      <div class="body"><h3>تعميق التغطية</h3><p>أدوات DAST/Cloud/Container/Forensics إضافية، مكاملات استخبارات، مولّد تقارير احترافي.</p></div>
+    </div>
+    <div class="phase">
+      <div class="tag mono">PHASE&nbsp;6<span class="badge later">PLANNED</span></div>
+      <div class="body"><h3>الصقل والإنتاج</h3><p>مصادقة مستخدمين وRBAC، تفكيك المكوّنات الضخمة، اختبارات E2E، Dockerfile للإنتاج.</p></div>
+    </div>
+  </section>
+
+  <!-- TOOL CATALOG -->
+  <section>
+    <span class="eyebrow">Tooling</span>
+    <h2>كتالوج الأدوات المقترحة</h2>
+    <p class="sec-intro">أدوات مفتوحة المصدر معيارية، كلٌّ داخل حاويته، تُستدعى فقط ضد أهداف المختبر المحلي.</p>
+    <div class="cat-grid">
+      <div class="cat" style="--accent:var(--cyan)"><h3>الاستطلاع والويب</h3><p class="sub">Recon · DAST</p><div class="taglist"><span>nmap</span><span>subfinder</span><span>httpx</span><span>nuclei</span><span>katana</span><span>ffuf</span><span>zap</span><span>nikto</span><span>sqlmap</span></div></div>
+      <div class="cat" style="--accent:var(--emerald)"><h3>الكود والتبعيات</h3><p class="sub">SAST · SCA · Secrets</p><div class="taglist"><span>semgrep</span><span>bandit</span><span>gitleaks</span><span>trivy-fs</span><span>codeql</span></div></div>
+      <div class="cat" style="--accent:var(--violet)"><h3>السحابة والحاويات</h3><p class="sub">Cloud · K8s</p><div class="taglist"><span>prowler</span><span>scoutsuite</span><span>trivy</span><span>kube-bench</span><span>dockle</span><span>hadolint</span></div></div>
+      <div class="cat" style="--accent:var(--amber)"><h3>الشبكة والأدلة الجنائية</h3><p class="sub">Network · Forensics</p><div class="taglist"><span>tshark</span><span>zeek</span><span>tcpdump</span><span>volatility</span></div></div>
+      <div class="cat" style="--accent:var(--rose)"><h3>استخبارات التهديد</h3><p class="sub">Threat Intel (read-only)</p><div class="taglist"><span>mitre-attack</span><span>virustotal</span><span>otx</span><span>misp</span></div></div>
+      <div class="cat" style="--accent:var(--cyan)"><h3>أهداف المختبر</h3><p class="sub">Vulnerable Labs</p><div class="taglist"><span>juice-shop</span><span>dvwa</span><span>webgoat</span><span>vulhub</span></div></div>
+    </div>
+  </section>
+
+  <!-- IDEAS -->
+  <section>
+    <span class="eyebrow">New Ideas</span>
+    <h2>أفكار جديدة نضيفها</h2>
+    <p class="sec-intro">ما يميّز المنصة عن مجرد «واجهة لأدوات» — تعلّم من الهجوم والدفاع معاً.</p>
+    <div class="ideas">
+      <div class="idea"><span class="num">01</span><h3>Attack ↔ Defense مزدوج</h3><p>لكل هجوم يكتشفه الوكيل، وكيل مدافع يقترح قاعدة كشف (Sigma / YARA / WAF) — تتعلّم الجانبين معاً.</p></div>
+      <div class="idea"><span class="num">02</span><h3>Purple Team Simulator</h3><p>محاكاة سلسلة هجوم MITRE ATT&CK كاملة على المختبر مع خط زمني للأحداث.</p></div>
+      <div class="idea"><span class="num">03</span><h3>مختبر توليدي فوري</h3><p>«اشرح هذه الثغرة كأني مبتدئ» → الوكيل يولّد بيئة ضعيفة مصغّرة لتجربتها حيّاً.</p></div>
+      <div class="idea"><span class="num">04</span><h3>تقارير مدعومة بالأدلة</h3><p>كل بند في التقرير مربوط بمخرَج أداة حقيقي (traceability كامل).</p></div>
+      <div class="idea"><span class="num">05</span><h3>مسار شهادات محاكٍ</h3><p>تتبّع تقدّم نحو أهداف تشبه OSCP / eJPT بشكل تعليمي.</p></div>
+      <div class="idea"><span class="num">06</span><h3>مكتبة Payloads تفاعلية</h3><p>حمولات آمنة مشروحة مع تأثير كل واحدة وكيفية التحصين ضدها.</p></div>
+      <div class="idea"><span class="num">07</span><h3>وضع «الخصم» للتدريب</h3><p>الوكيل يهاجم كودك أو إعدادك ثم يعلّمك كيف تحصّنه.</p></div>
+      <div class="idea"><span class="num">08</span><h3>تكامل Git</h3><p>يفحص ريبو حقيقياً (SAST + secrets) ويشرح النتائج تعليمياً سطراً بسطر.</p></div>
+    </div>
+  </section>
+
+  <!-- SECURITY -->
+  <section style="border-bottom:none">
+    <span class="eyebrow">Guardrails</span>
+    <h2>مصفوفة الأمان الحاكمة</h2>
+    <p class="sec-intro">هذه أداة دفاعية/تعليمية. قواعد صارمة تُطبَّق في كل مرحلة قبل أي تنفيذ حقيقي.</p>
+    <div class="sec-matrix">
+      <div class="rule"><span class="ic">SCOPE</span><p><b>أهداف المختبر المحلي فقط.</b> كل تنفيذ يمرّ عبر Security Gateway بمطابقة CIDR فعلية؛ أي هدف إنترنت يُرفض تلقائياً.</p></div>
+      <div class="rule"><span class="ic">ISOLATE</span><p><b>عزل شبكي كامل.</b> الأدوات تعمل في حاويات بشبكة bridge خاصة أو <span class="mono">--network none</span>، بحدود CPU/ذاكرة ومهلة تنفيذ.</p></div>
+      <div class="rule"><span class="ic">APPROVE</span><p><b>منع صريح للأدوات عالية الخطورة.</b> zap/bruteforce/exploit تتطلب موافقة صريحة — لا مجرد وسم كما في الكود الحالي.</p></div>
+      <div class="rule"><span class="ic">AUDIT</span><p><b>سجل تدقيق دائم.</b> كل استدعاء أداة ونتيجة يُسجَّل في SQLite بمعرّف تتبّع (traceId) قابل للمراجعة.</p></div>
+      <div class="rule"><span class="ic">INPUT</span><p><b>دفاع حقن الأوامر.</b> يُحتفظ بتغليف <span class="mono">&lt;user_input&gt;</span> وحدود الطول، وتُعامَل مدخلات المستخدم كبيانات لا كتعليمات.</p></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="mono">cyberagent-ai · roadmap v1 · 2026-08-29</p>
+    <p>وثيقة مرجعية داخلية — للتعلّم والاختبار الأخلاقي المصرّح به فقط.</p>
+  </div>
+</footer>
