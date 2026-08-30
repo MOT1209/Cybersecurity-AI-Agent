@@ -4,9 +4,7 @@ import {
   HelpCircle, 
   CheckCircle2, 
   AlertCircle, 
-  Sparkles, 
   Bot, 
-  Lock, 
   Unlock,
   KeyRound,
   Trophy

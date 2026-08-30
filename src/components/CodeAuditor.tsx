@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { 
-  Code2, 
   ShieldAlert, 
   ShieldCheck, 
   Play, 
@@ -9,12 +8,9 @@ import {
   Check, 
   Sparkles, 
   AlertTriangle, 
-  Layers, 
   FileCode, 
   CheckCircle2, 
-  ListOrdered,
   RefreshCw,
-  Sliders
 } from 'lucide-react';
 import { CODE_AUDIT_SAMPLES } from '../data/cyberData';
 import { AuditResult, VulnerabilityItem } from '../types';

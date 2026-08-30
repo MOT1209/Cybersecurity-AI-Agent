@@ -2,16 +2,11 @@ import React, { useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { 
   BookOpen, 
-  ShieldCheck, 
-  Layers, 
   Search, 
   Sparkles, 
   AlertTriangle, 
   Code, 
   CheckCircle,
-  ExternalLink,
-  ChevronDown,
-  ChevronUp
 } from 'lucide-react';
 import { OWASP_TOP_10, MITRE_TACTICS } from '../data/cyberData';
 import ReactMarkdown from 'react-markdown';

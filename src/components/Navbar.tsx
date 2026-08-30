@@ -8,11 +8,9 @@ import {
   Flag, 
   FileText, 
   Bot, 
-  Sparkles,
   Globe,
   Cpu,
   Lock,
-  Layers,
   RotateCcw
 } from 'lucide-react';
 

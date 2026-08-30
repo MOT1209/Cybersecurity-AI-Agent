@@ -8,8 +8,6 @@ import {
   HelpCircle, 
   CheckCircle2, 
   AlertCircle,
-  Copy,
-  ChevronRight,
   Server,
   ArrowRight
 } from 'lucide-react';

@@ -9,9 +9,7 @@ import {
   Layers,
   Sparkles,
   Terminal,
-  FileCode,
   CheckCircle2,
-  AlertTriangle,
   Clock,
   Radar,
   Globe,
@@ -24,16 +22,9 @@ import {
   Wrench,
   FileText,
   CheckCheck,
-  ChevronRight,
-  ExternalLink,
-  Lock,
   Copy,
   Check,
   RotateCcw,
-  RefreshCw,
-  Sliders,
-  AlertOctagon,
-  Activity
 } from 'lucide-react';
 import { SYSTEM_AGENTS, INITIAL_PROJECT_SCOPES } from '../data/agentPlatformData';
 import { OrchestrationPlan, AgentType, ErrorRecoveryEvent } from '../types';

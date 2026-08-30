@@ -1,19 +1,13 @@
 import React, { useState } from 'react';
 import { apiFetch } from '../lib/api';
 import {
-  Shield,
-  ShieldAlert,
   ShieldCheck,
   Lock,
   CheckCircle2,
   XCircle,
-  AlertTriangle,
-  FileCheck,
   Terminal,
   FolderLock,
-  Cpu,
   RefreshCw,
-  Plus
 } from 'lucide-react';
 import { INITIAL_PROJECT_SCOPES } from '../data/agentPlatformData';
 import { GatewayCheckResult } from '../types';

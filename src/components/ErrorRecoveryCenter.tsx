@@ -3,28 +3,17 @@ import { apiFetch } from '../lib/api';
 import {
   RotateCcw,
   ShieldCheck,
-  AlertOctagon,
-  AlertTriangle,
   Zap,
   Activity,
   Server,
   Terminal,
-  Clock,
-  ArrowRight,
   Sparkles,
-  Play,
   CheckCircle2,
-  XCircle,
   RefreshCw,
   Sliders,
-  Cpu,
-  Flame,
-  Info,
-  Check,
   ChevronRight,
   Layers,
   Search,
-  Filter
 } from 'lucide-react';
 import { ErrorRecoveryEvent, ErrorClassification, RecoveryStrategyType } from '../types';
 

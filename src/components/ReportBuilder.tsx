@@ -6,12 +6,9 @@ import {
   Download, 
   Copy, 
   Check, 
-  ShieldAlert, 
   Plus, 
   Trash2,
   RefreshCw,
-  Building,
-  UserCheck
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { SecurityReportFinding } from '../types';

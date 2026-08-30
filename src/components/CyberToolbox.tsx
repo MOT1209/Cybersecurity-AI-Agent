@@ -1,16 +1,12 @@
 import React, { useState, useId } from 'react';
 import { 
   Wrench, 
-  Binary, 
   Hash, 
   KeyRound, 
   Network, 
   Copy, 
   Check, 
-  ArrowRightLeft, 
-  ShieldCheck, 
   Search,
-  Sparkles
 } from 'lucide-react';
 import { COMMON_PORTS } from '../data/cyberData';
 

@@ -4,7 +4,6 @@ import {
   Send, 
   Bot, 
   User, 
-  Sparkles, 
   Trash2, 
   Copy, 
   Check, 
