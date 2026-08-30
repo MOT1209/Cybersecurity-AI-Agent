@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { SecurityReportFinding } from '../types';
+import { useCopy } from '../lib/useCopy';
 
 interface ReportBuilderProps {
   language: 'ar' | 'en';
@@ -58,7 +59,7 @@ export const ReportBuilder: React.FC<ReportBuilderProps> = ({ language }) => {
 
   const [loading, setLoading] = useState<boolean>(false);
   const [reportMarkdown, setReportMarkdown] = useState<string | null>(null);
-  const [copiedReport, setCopiedReport] = useState<boolean>(false);
+  const { copy, isCopied } = useCopy();
 
   const handleAddFinding = () => {
     if (!newTitle.trim()) return;
@@ -272,14 +273,12 @@ export const ReportBuilder: React.FC<ReportBuilderProps> = ({ language }) => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(reportMarkdown);
-                    setCopiedReport(true);
-                    setTimeout(() => setCopiedReport(false), 2000);
+                    void copy(reportMarkdown, 'report');
                   }}
                   className="flex items-center gap-1 text-xs text-slate-300 hover:text-purple-300 px-2 py-1 rounded bg-slate-950 border border-slate-800"
                 >
-                  {copiedReport ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedReport ? 'Copied' : 'Copy'}</span>
+                  {isCopied('report') ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  <span>{isCopied('report') ? 'Copied' : 'Copy'}</span>
                 </button>
                 <button
                   onClick={handleDownloadMarkdown}

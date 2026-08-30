@@ -1,4 +1,4 @@
-import React, { useState, useId } from 'react';
+import React, { useState } from 'react';
 import { 
   Wrench, 
   Hash, 
@@ -9,6 +9,7 @@ import {
   Search,
 } from 'lucide-react';
 import { COMMON_PORTS } from '../data/cyberData';
+import { useCopy } from '../lib/useCopy';
 
 interface CyberToolboxProps {
   language: 'ar' | 'en';
@@ -22,7 +23,7 @@ export const CyberToolbox: React.FC<CyberToolboxProps> = ({ language }) => {
   const [encoderMode, setEncoderMode] = useState<'base64' | 'hex' | 'url' | 'rot13' | 'binary'>('base64');
   const [encoderInput, setEncoderInput] = useState<string>('admin:password123');
   const [encoderOutput, setEncoderOutput] = useState<string>('');
-  const [copiedEncoder, setCopiedEncoder] = useState<boolean>(false);
+  const { copy, isCopied } = useCopy();
 
   // Hasher state
   const [hasherInput, setHasherInput] = useState<string>('admin123');
@@ -195,7 +196,7 @@ export const CyberToolbox: React.FC<CyberToolboxProps> = ({ language }) => {
   const handleEncode = (text: string, mode: string) => {
     try {
       if (mode === 'base64') {
-        return btoa(unescape(encodeURIComponent(text)));
+        return btoa(String.fromCharCode(...new TextEncoder().encode(text)));
       } else if (mode === 'hex') {
         return Array.from(new TextEncoder().encode(text))
           .map((b) => b.toString(16).padStart(2, '0'))
@@ -221,7 +222,9 @@ export const CyberToolbox: React.FC<CyberToolboxProps> = ({ language }) => {
   const handleDecode = (text: string, mode: string) => {
     try {
       if (mode === 'base64') {
-        return decodeURIComponent(escape(atob(text.trim())));
+        return new TextDecoder().decode(
+          Uint8Array.from(atob(text.trim()), (c) => c.charCodeAt(0)),
+        );
       } else if (mode === 'hex') {
         const clean = text.replace(/[^0-9a-fA-F]/g, '');
         const bytes = new Uint8Array(clean.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []);
@@ -309,7 +312,6 @@ export const CyberToolbox: React.FC<CyberToolboxProps> = ({ language }) => {
     const entropy = Math.round(pass.length * (Math.log2(poolSize || 1)));
 
     let strength = 'Weak (ضعيفة)';
-    let color = 'text-red-400';
     let crackTime = '< 1 second';
 
     if (entropy >= 80) {
@@ -449,14 +451,12 @@ export const CyberToolbox: React.FC<CyberToolboxProps> = ({ language }) => {
               {encoderOutput && (
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(encoderOutput);
-                    setCopiedEncoder(true);
-                    setTimeout(() => setCopiedEncoder(false), 2000);
+                    void copy(encoderOutput, 'encoder');
                   }}
                   className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-cyan-300"
                 >
-                  {copiedEncoder ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedEncoder ? 'Copied' : 'Copy'}</span>
+                  {isCopied('encoder') ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{isCopied('encoder') ? 'Copied' : 'Copy'}</span>
                 </button>
               )}
             </div>
@@ -507,7 +507,7 @@ export const CyberToolbox: React.FC<CyberToolboxProps> = ({ language }) => {
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs text-cyan-300 truncate select-all">{h.value}</span>
                     <button
-                      onClick={() => navigator.clipboard.writeText(h.value)}
+                      onClick={() => void copy(h.value, `hash-${h.label}`)}
                       className="p-1 hover:text-cyan-400 text-slate-500"
                       title="Copy"
                     >

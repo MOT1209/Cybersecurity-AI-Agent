@@ -299,13 +299,13 @@ SELECT * FROM admin_users WHERE username = '$USER' AND password = '$PASSWORD'
     descriptionAr: 'تم اعتراض رسالة سرية مشفرة بـ Base64 ثم تم تحويلها إلى Hexadecimal. استخرج النص الأصلي ومفتاح العلم.',
     descriptionEn: 'An intercepted encoded payload with Hex and Base64 layering.',
     scenarioDetails: `السلسلة المشفرة:
-526b784252303576626d56796332566a636e563065584e6b5957356a5a5449774d6a597d
+526b7842523374755a585a6c636c39795a57783558323975583256755932396b6157356e58325a76636c397a5a574e31636d6c30655638794d44493266513d3d
 
 الخطوة 1: فك تشفير Hex إلى نص.
 الخطوة 2: فك تشفير ناتج الـ Base64 للحصول على FLAG{...}`,
     hints: [
       'استخدم أداة فك التشفير في صندوق الأدوات (Toolbox) لتحويل Hex إلى String أولاً.',
-      'السلسلة الناتجة تبدأ بـ RkxCU... وهي Base64.',
+      'السلسلة الناتجة تبدأ بـ RkxBR... وهي Base64.',
       'فك تشفير الـ Base64 للوصول إلى العلم مباشرة.',
     ],
     flag: 'FLAG{never_rely_on_encoding_for_security_2026}',

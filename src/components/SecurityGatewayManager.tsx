@@ -21,7 +21,7 @@ export const SecurityGatewayManager: React.FC<SecurityGatewayManagerProps> = ({ 
 
   const [testTarget, setTestTarget] = useState<string>('192.168.1.50');
   const [testTool, setTestTool] = useState<string>('nmap');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('proj_alpha_lab');
+  const [selectedProjectId] = useState<string>('proj_alpha_lab');
   const [checkResult, setCheckResult] = useState<GatewayCheckResult | null>(null);
   const [isChecking, setIsChecking] = useState<boolean>(false);
 

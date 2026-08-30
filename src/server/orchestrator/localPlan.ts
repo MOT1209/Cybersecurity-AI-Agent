@@ -7,8 +7,13 @@
  * as the seed shape for the real orchestrator.
  */
 
+import crypto from "crypto";
+
 export function buildOrchestratedMultiAgentPlan(userPrompt: string, target: string, projectId: string = "proj_alpha_lab") {
-  const traceId = `trc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  // One random run id per plan. Date.now() alone collided whenever two plans
+  // were built inside the same millisecond.
+  const runId = crypto.randomUUID();
+  const traceId = `trc_${runId}`;
   const q = userPrompt.toLowerCase();
 
   // Determine agents required
@@ -32,7 +37,7 @@ export function buildOrchestratedMultiAgentPlan(userPrompt: string, target: stri
 
   const steps: any[] = [
     {
-      id: `step_1_${Date.now()}`,
+      id: `step_1_${runId}`,
       stepNumber: 1,
       phase: "UNDERSTAND",
       agent: "orchestrator",
@@ -44,7 +49,7 @@ export function buildOrchestratedMultiAgentPlan(userPrompt: string, target: stri
       durationMs: 120,
     },
     {
-      id: `step_2_${Date.now()}`,
+      id: `step_2_${runId}`,
       stepNumber: 2,
       phase: "AUTHORIZE",
       agent: "gateway",
@@ -56,7 +61,7 @@ export function buildOrchestratedMultiAgentPlan(userPrompt: string, target: stri
       durationMs: 90,
     },
     {
-      id: `step_3_${Date.now()}`,
+      id: `step_3_${runId}`,
       stepNumber: 3,
       phase: "EXECUTE",
       agent: "recon",
@@ -69,7 +74,7 @@ export function buildOrchestratedMultiAgentPlan(userPrompt: string, target: stri
       durationMs: 640,
     },
     {
-      id: `step_4_${Date.now()}`,
+      id: `step_4_${runId}`,
       stepNumber: 4,
       phase: "EXECUTE",
       agent: "web_security",
@@ -82,7 +87,7 @@ export function buildOrchestratedMultiAgentPlan(userPrompt: string, target: stri
       durationMs: 820,
     },
     {
-      id: `step_5_${Date.now()}`,
+      id: `step_5_${runId}`,
       stepNumber: 5,
       phase: "VALIDATE",
       agent: "vuln_analysis",
@@ -95,7 +100,7 @@ export function buildOrchestratedMultiAgentPlan(userPrompt: string, target: stri
       durationMs: 310,
     },
     {
-      id: `step_6_${Date.now()}`,
+      id: `step_6_${runId}`,
       stepNumber: 6,
       phase: "REMEDIATION",
       agent: "remediation",
@@ -108,7 +113,7 @@ export function buildOrchestratedMultiAgentPlan(userPrompt: string, target: stri
       durationMs: 400,
     },
     {
-      id: `step_7_${Date.now()}`,
+      id: `step_7_${runId}`,
       stepNumber: 7,
       phase: "RETEST",
       agent: "testing",
@@ -121,7 +126,7 @@ export function buildOrchestratedMultiAgentPlan(userPrompt: string, target: stri
       durationMs: 250,
     },
     {
-      id: `step_8_${Date.now()}`,
+      id: `step_8_${runId}`,
       stepNumber: 8,
       phase: "REPORT",
       agent: "reporting",
@@ -137,7 +142,7 @@ export function buildOrchestratedMultiAgentPlan(userPrompt: string, target: stri
 
   const findings = [
     {
-      id: `find_sqli_${Date.now()}`,
+      id: `find_sqli_${runId}`,
       projectId,
       title: "ثغرة حقن استعلامات قواعد البيانات في نقطة المصادقة (SQL Injection - CWE-89)",
       target: `${target}:8080/api/v1/auth`,
@@ -162,17 +167,17 @@ export function buildOrchestratedMultiAgentPlan(userPrompt: string, target: stri
       remediation: {
         summary: "استبدال دمج النصوص بالاستعلامات المعلمة مسبقاً (Parameterized Prepared Statements).",
         codeFix: `// ✅ الكود المصحح والآمن\nconst query = 'SELECT id, username, role FROM users WHERE username = ? AND password_hash = ?';\nconst [rows] = await db.execute(query, [sanitizedUsername, hashedPassword]);`,
-        configPatch: `SecRule ARGS:username "@rx (['\"].*(or|and).*=)" "id:1001,phase:2,deny,status:403,log,msg:'SQL Injection Attempt Detected'"`,
+        configPatch: `SecRule ARGS:username "@rx (['"].*(or|and).*=)" "id:1001,phase:2,deny,status:403,log,msg:'SQL Injection Attempt Detected'"`,
         hardeningSteps: [
           "تطبيق مبدأ أقل الصلاحيات لمستخدم قاعدة البيانات (Read/Write only on specific tables).",
           "تفعيل جدار حماية تطبيقات الويب (WAF) بقواعد OWASP CRS.",
           "تفعيل التشفير لكلمات المرور باستخدام خوارزمية Argon2id أو bcrypt."
         ],
-        verificationCommand: `curl -X POST http://${target}:8080/api/v1/auth/login -d '{"username":"admin\' OR 1=1--"}'`
+        verificationCommand: `curl -X POST http://${target}:8080/api/v1/auth/login -d '{"username":"admin' OR 1=1--"}'`
       }
     },
     {
-      id: `find_backup_${Date.now()}`,
+      id: `find_backup_${runId}`,
       projectId,
       title: "كشف مجلد النسخ الاحتياطية والتصفح المفتوح (Directory Indexing & Backup Exposure - CWE-548)",
       target: `http://${target}/backup/`,
@@ -219,7 +224,7 @@ export function buildOrchestratedMultiAgentPlan(userPrompt: string, target: stri
   ];
 
   return {
-    id: `plan_${Date.now()}`,
+    id: `plan_${runId}`,
     traceId,
     userPrompt,
     projectId,

@@ -27,7 +27,8 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { SYSTEM_AGENTS, INITIAL_PROJECT_SCOPES } from '../data/agentPlatformData';
-import { OrchestrationPlan, AgentType, ErrorRecoveryEvent } from '../types';
+import { OrchestrationPlan, AgentType } from '../types';
+import { useCopy } from '../lib/useCopy';
 
 interface OrchestratorDashboardProps {
   language: 'ar' | 'en';
@@ -61,7 +62,7 @@ export const OrchestratorDashboard: React.FC<OrchestratorDashboardProps> = ({ la
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [currentPlan, setCurrentPlan] = useState<OrchestrationPlan | null>(null);
   const [selectedAgentDetail, setSelectedAgentDetail] = useState<AgentType | null>('recon');
-  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+  const { copy, isCopied } = useCopy();
   const [activeTab, setActiveTab] = useState<'workflow' | 'live_logs' | 'findings' | 'agents_mesh'>('workflow');
   const [recoveringStepId, setRecoveringStepId] = useState<string | null>(null);
   const [stepRecoveryFeedback, setStepRecoveryFeedback] = useState<Record<string, {
@@ -127,9 +128,7 @@ export const OrchestratorDashboard: React.FC<OrchestratorDashboardProps> = ({ la
   };
 
   const handleCopyCode = (code: string, id: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCodeId(id);
-    setTimeout(() => setCopiedCodeId(null), 2000);
+    void copy(code, id);
   };
 
   const quickScenarios = [
@@ -556,8 +555,8 @@ export const OrchestratorDashboard: React.FC<OrchestratorDashboardProps> = ({ la
                         onClick={() => handleCopyCode(find.remediation.codeFix!, find.id)}
                         className="text-[11px] flex items-center gap-1 text-slate-400 hover:text-emerald-400 px-2 py-1 rounded bg-slate-900 border border-slate-800 transition-colors"
                       >
-                        {copiedCodeId === find.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedCodeId === find.id ? (isAr ? 'تم النسخ!' : 'Copied!') : (isAr ? 'نسخ الكود' : 'Copy Code')}</span>
+                        {isCopied(find.id) ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        <span>{isCopied(find.id) ? (isAr ? 'تم النسخ!' : 'Copied!') : (isAr ? 'نسخ الكود' : 'Copy Code')}</span>
                       </button>
                     )}
                   </div>

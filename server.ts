@@ -4,7 +4,9 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
-import { generate as llmGenerate, providerStatus, wrapUserInput } from "./src/server/llm/index";
+import helmet from "helmet";
+import crypto from "crypto";
+import { generate as llmGenerate, wrapUserInput } from "./src/server/llm/index";
 import {
   validateStringField,
   projectsStore,
@@ -60,7 +62,18 @@ export async function createApp() {
   // Trust proxy for Cloud Run / Nginx reverse proxy environment
   app.set("trust proxy", 1);
 
-  app.use(express.json({ limit: "15mb" }));
+  // Security headers. The default CSP is disabled outside production because
+  // Vite's dev middleware serves inline scripts and opens an HMR websocket,
+  // both of which a strict default policy blocks.
+  app.use(
+    helmet({
+      contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
+    }),
+  );
+
+  // 1MB is generous: the largest field any endpoint accepts is 4,000 chars.
+  // The previous 15MB ceiling was memory-DoS surface with no functional use.
+  app.use(express.json({ limit: "1mb" }));
 
   // Global Rate Limiter: 60 requests / 15 minutes per IP on all /api/* routes
   const globalApiLimiter = rateLimit({
@@ -112,6 +125,17 @@ export async function createApp() {
     },
   });
 
+  /**
+   * Constant-time API key comparison. Both sides are hashed first so the
+   * comparison operates on equal-length buffers — timingSafeEqual throws on a
+   * length mismatch, and comparing raw keys would leak the expected length.
+   */
+  const safeKeyEqual = (provided: string, expected: string): boolean => {
+    const a = crypto.createHash("sha256").update(provided).digest();
+    const b = crypto.createHash("sha256").update(expected).digest();
+    return crypto.timingSafeEqual(a, b);
+  };
+
   // API Key Authentication Middleware: protects /api/* except /api/health
   const apiKeyAuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
     if (req.path === "/health" || req.path === "/api/health") {
@@ -122,7 +146,7 @@ export async function createApp() {
       return next();
     }
     const providedKey = req.header("x-api-key");
-    if (!providedKey || providedKey !== expectedKey) {
+    if (!providedKey || !safeKeyEqual(providedKey, expectedKey)) {
       return res.status(401).json({
         error: "UNAUTHORIZED",
         message: "Invalid or missing API key in 'x-api-key' header.",
@@ -167,7 +191,7 @@ export async function createApp() {
 
     const { name, targetDomain, inScope = [], outOfScope = [] } = req.body;
     const newProj = {
-      id: `proj_${Date.now()}`,
+      id: `proj_${crypto.randomUUID()}`,
       name: name || "New Security Engagement Lab",
       targetDomain: targetDomain || "target.lab",
       targetIps: [targetDomain || "192.168.1.50"],
@@ -376,7 +400,7 @@ Classify the error, diagnose the root cause, determine the safe retry strategy, 
 
         const parsed = JSON.parse(response.text || "{}");
         const recoveryEvent = {
-          id: `rec_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          id: `rec_${crypto.randomUUID()}`,
           timestamp: new Date().toISOString(),
           toolName,
           agentId,
@@ -534,7 +558,6 @@ Classify the error, diagnose the root cause, determine the safe retry strategy, 
       console.warn("Chat fallback activated:", err?.message);
     }
 
-    const lastMsg = messages[messages.length - 1]?.content || "";
     const isAr = language === "ar";
     return res.json({
       reply: isAr
@@ -572,7 +595,7 @@ How can I assist your security workflow?
       return res.status(400).json({ error: "VALIDATION_ERROR", message: langCheck.error });
     }
 
-    const { code, language = "auto" } = req.body;
+    const { code } = req.body;
 
     try {
       const ai = getAIClient();

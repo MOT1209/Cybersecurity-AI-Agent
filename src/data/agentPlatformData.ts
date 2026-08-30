@@ -1,4 +1,4 @@
-import { AgentMetadata, ToolPlugin, ProjectScope, LabEnvironment, KnowledgeItem } from '../types';
+import { AgentMetadata, ToolPlugin, ProjectScope, LabEnvironment } from '../types';
 
 export const SYSTEM_AGENTS: AgentMetadata[] = [
   {

@@ -15,14 +15,16 @@ import { KnowledgeBase } from './components/KnowledgeBase';
 import { CtfArena } from './components/CtfArena';
 import { ReportBuilder } from './components/ReportBuilder';
 import { ErrorRecoveryCenter } from './components/ErrorRecoveryCenter';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { CTFScenario } from './types';
-import { Shield, ShieldAlert, Cpu, Sparkles, Terminal } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { apiFetch } from './lib/api';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('orchestrator');
   const [language, setLanguage] = useState<'ar' | 'en'>('ar');
   const [serverHealth, setServerHealth] = useState<{ status: string; platform?: string; timestamp?: string } | null>(null);
+  const [pendingChallenge, setPendingChallenge] = useState<CTFScenario | null>(null);
 
   const isAr = language === 'ar';
 
@@ -41,7 +43,8 @@ export default function App() {
   }, [isAr]);
 
   const handleAskAgentAboutChallenge = (scenario: CTFScenario) => {
-    setActiveTab('orchestrator');
+    setPendingChallenge(scenario);
+    setActiveTab('agent');
   };
 
   return (
@@ -56,21 +59,29 @@ export default function App() {
 
       {/* Main Tab Views */}
       <main className="flex-1 pb-10">
-        {activeTab === 'orchestrator' && <OrchestratorDashboard language={language} />}
-        {activeTab === 'recovery' && <ErrorRecoveryCenter language={language} />}
-        {activeTab === 'gateway' && <SecurityGatewayManager language={language} />}
-        {activeTab === 'agent' && <AgentWorkspace language={language} />}
-        {activeTab === 'auditor' && <CodeAuditor language={language} />}
-        {activeTab === 'terminal' && <InteractiveTerminalLab language={language} />}
-        {activeTab === 'toolbox' && <CyberToolbox language={language} />}
-        {activeTab === 'knowledge' && <KnowledgeBase language={language} />}
-        {activeTab === 'ctf' && (
-          <CtfArena
-            language={language}
-            onAskAgentAboutChallenge={handleAskAgentAboutChallenge}
-          />
-        )}
-        {activeTab === 'report' && <ReportBuilder language={language} />}
+        <ErrorBoundary language={language} resetKey={activeTab}>
+          {activeTab === 'orchestrator' && <OrchestratorDashboard language={language} />}
+          {activeTab === 'recovery' && <ErrorRecoveryCenter language={language} />}
+          {activeTab === 'gateway' && <SecurityGatewayManager language={language} />}
+          {activeTab === 'agent' && (
+            <AgentWorkspace
+              language={language}
+              pendingChallenge={pendingChallenge}
+              onChallengeConsumed={() => setPendingChallenge(null)}
+            />
+          )}
+          {activeTab === 'auditor' && <CodeAuditor language={language} />}
+          {activeTab === 'terminal' && <InteractiveTerminalLab language={language} />}
+          {activeTab === 'toolbox' && <CyberToolbox language={language} />}
+          {activeTab === 'knowledge' && <KnowledgeBase language={language} />}
+          {activeTab === 'ctf' && (
+            <CtfArena
+              language={language}
+              onAskAgentAboutChallenge={handleAskAgentAboutChallenge}
+            />
+          )}
+          {activeTab === 'report' && <ReportBuilder language={language} />}
+        </ErrorBoundary>
       </main>
 
       {/* Bottom Status Footer */}
@@ -78,8 +89,10 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1 text-slate-400 font-mono">
-              <span className="w-2 h-2 rounded-full bg-cyan-400" />
-              <span>CYBERGUARD AI Core v3.0 Multi-Agent</span>
+              <span
+                className={`w-2 h-2 rounded-full ${serverHealth ? 'bg-emerald-400' : 'bg-amber-400'}`}
+              />
+              <span>{serverHealth?.platform ?? 'CYBERGUARD AI'}</span>
             </span>
             <span>•</span>
             <span className="text-[11px]">
@@ -93,7 +106,11 @@ export default function App() {
               <span>{isAr ? 'بيئة معزولة Sandbox + Zero-Trust Gateway' : 'Zero-Trust Gateway & Sandbox'}</span>
             </span>
             <span>•</span>
-            <span>Gemini 3.7 Flash Engine</span>
+            <span aria-live="polite">
+              {serverHealth
+                ? (isAr ? 'الخادم متصل' : 'Backend connected')
+                : (isAr ? 'الخادم غير متصل' : 'Backend unreachable')}
+            </span>
           </div>
         </div>
       </footer>

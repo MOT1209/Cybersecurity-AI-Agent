@@ -14,7 +14,7 @@ import type { ToolRunRequest, ToolRunResult } from "../sandbox/types";
 export const NmapParamsSchema = z.object({
   ports: z
     .string()
-    .regex(/^[0-9,\-]+$/, "ports must be digits, commas and dashes only")
+    .regex(/^[0-9,-]+$/, "ports must be digits, commas and dashes only")
     .max(100)
     .optional()
     .default("1-1000"),

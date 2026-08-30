@@ -18,14 +18,23 @@ import {
   Cpu
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { AgentPersona, ChatMessage } from '../types';
+import { AgentPersona, ChatMessage, CTFScenario } from '../types';
 import { SUGGESTED_QUESTIONS } from '../data/cyberData';
+import { useCopy } from '../lib/useCopy';
 
 interface AgentWorkspaceProps {
   language: 'ar' | 'en';
+  /** Scenario handed over from the CTF arena via "ask the mentor". */
+  pendingChallenge?: CTFScenario | null;
+  /** Called once the scenario has been turned into a question. */
+  onChallengeConsumed?: () => void;
 }
 
-export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({ language }) => {
+export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({
+  language,
+  pendingChallenge,
+  onChallengeConsumed,
+}) => {
   const isAr = language === 'ar';
   const [persona, setPersona] = useState<AgentPersona>('tutor');
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -61,7 +70,7 @@ Select an agent persona above or ask anything to get started!`,
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { copy, isCopied } = useCopy();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -72,6 +81,33 @@ Select an agent persona above or ask anything to get started!`,
   useEffect(() => {
     scrollToBottom();
   }, [messages, loading]);
+
+  // A challenge arriving from the CTF arena is turned into a real question so
+  // the mentor answers with the scenario in context, rather than the user
+  // landing on an empty chat and having to retype it.
+  useEffect(() => {
+    if (!pendingChallenge || loading) return;
+
+    const title = isAr ? pendingChallenge.titleAr : pendingChallenge.titleEn;
+    const question = isAr
+      ? `أحتاج إرشادًا في تحدي CTF التالي — لا تعطني العلم مباشرة، بل وجّهني خطوة بخطوة.
+
+**التحدي:** ${title}
+**التصنيف:** ${pendingChallenge.category} · **الصعوبة:** ${pendingChallenge.difficulty}
+
+${pendingChallenge.scenarioDetails}`
+      : `I need guidance on the following CTF challenge. Do not give me the flag outright — walk me through it step by step.
+
+**Challenge:** ${title}
+**Category:** ${pendingChallenge.category} · **Difficulty:** ${pendingChallenge.difficulty}
+
+${pendingChallenge.scenarioDetails}`;
+
+    setPersona('tutor');
+    onChallengeConsumed?.();
+    void handleSendMessage(question);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingChallenge]);
 
   const personas = [
     {
@@ -185,9 +221,7 @@ Select an agent persona above or ask anything to get started!`,
   };
 
   const handleCopy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+    void copy(text, id);
   };
 
   const handleClearChat = () => {
@@ -316,7 +350,7 @@ Select an agent persona above or ask anything to get started!`,
                         className="opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-opacity p-1"
                         title={isAr ? 'نسخ النص' : 'Copy'}
                       >
-                        {copiedId === msg.id ? (
+                        {isCopied(msg.id) ? (
                           <Check className="w-3.5 h-3.5 text-emerald-400" />
                         ) : (
                           <Copy className="w-3.5 h-3.5" />
@@ -329,14 +363,14 @@ Select an agent persona above or ask anything to get started!`,
                 <div className="prose prose-invert max-w-none text-sm leading-relaxed overflow-x-auto">
                   <ReactMarkdown
                     components={{
-                      code({ node, className, children, ...props }) {
+                      code({ className, children, ...props }) {
                         const match = /language-(\w+)/.exec(className || '');
                         return match ? (
                           <div className="my-2 rounded-lg bg-slate-950 border border-slate-800 overflow-hidden font-mono text-xs">
                             <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-[11px] text-slate-400">
                               <span>{match[1]}</span>
                               <button
-                                onClick={() => navigator.clipboard.writeText(String(children).replace(/\n$/, ''))}
+                                onClick={() => void copy(String(children).replace(/\n$/, ''), 'inline-code')}
                                 className="hover:text-cyan-400 flex items-center gap-1 text-[10px]"
                               >
                                 <Copy className="w-3 h-3" />

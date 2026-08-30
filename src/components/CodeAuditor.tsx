@@ -13,7 +13,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { CODE_AUDIT_SAMPLES } from '../data/cyberData';
-import { AuditResult, VulnerabilityItem } from '../types';
+import { AuditResult } from '../types';
+import { useCopy } from '../lib/useCopy';
 
 interface CodeAuditorProps {
   language: 'ar' | 'en';
@@ -27,7 +28,7 @@ export const CodeAuditor: React.FC<CodeAuditorProps> = ({ language }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [copiedPatch, setCopiedPatch] = useState<boolean>(false);
+  const { copy, isCopied } = useCopy();
   const [activeTab, setActiveTab] = useState<'overview' | 'vulns' | 'patch' | 'practices'>('overview');
 
   const handleSampleChange = (id: string) => {
@@ -377,14 +378,12 @@ export const CodeAuditor: React.FC<CodeAuditorProps> = ({ language }) => {
                       </span>
                       <button
                         onClick={() => {
-                          navigator.clipboard.writeText(auditResult.securedCode);
-                          setCopiedPatch(true);
-                          setTimeout(() => setCopiedPatch(false), 2000);
+                          void copy(auditResult.securedCode, 'patch');
                         }}
                         className="flex items-center gap-1 text-xs text-slate-300 hover:text-emerald-400 px-2 py-1 rounded bg-slate-950 border border-slate-800 hover:border-emerald-800/80 transition-colors"
                       >
-                        {copiedPatch ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copiedPatch ? (isAr ? 'تم النسخ' : 'Copied') : (isAr ? 'نسخ الكود' : 'Copy')}</span>
+                        {isCopied('patch') ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{isCopied('patch') ? (isAr ? 'تم النسخ' : 'Copied') : (isAr ? 'نسخ الكود' : 'Copy')}</span>
                       </button>
                     </div>
 
