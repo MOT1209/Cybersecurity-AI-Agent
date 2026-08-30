@@ -13,6 +13,7 @@ import {
   errorRecoveryEventsStore,
   addAuditLog,
 } from "./store";
+import { extractHost, matchesAnyScope, isPrivateOrLabHost } from "./scope";
 
 export interface GatewayDecision {
   isAllowed: boolean;
@@ -34,13 +35,12 @@ export function validateSecurityGateway(
   projectId: string = "proj_alpha_lab",
 ): GatewayDecision {
   const project = projectsStore.find((p) => p.id === projectId) || projectsStore[0];
-  const targetClean = target.trim().toLowerCase();
+  const host = extractHost(target);
 
-  // 1. Check Out of Scope (Blacklist)
-  const isOutOfScope = project.outOfScope.some((denied) =>
-    targetClean.includes(denied.toLowerCase().replace("*.", "")),
-  );
-  if (isOutOfScope) {
+  // 1. Check Out of Scope (blocklist) — strict host/IP/CIDR/wildcard match.
+  //    Evaluated first, so an explicitly denied host is rejected even if it
+  //    would otherwise qualify as a private/lab address.
+  if (matchesAnyScope(host, project.outOfScope)) {
     addAuditLog("SecurityGateway", `EXECUTE_${toolName.toUpperCase()}`, target, "DENIED", "Target matches explicit out-of-scope restriction");
     return {
       isAllowed: false,
@@ -51,12 +51,15 @@ export function validateSecurityGateway(
     };
   }
 
-  // 2. Check In Scope (Whitelist)
-  const isInScope = project.inScope.some((allowed) =>
-    targetClean.includes(allowed.toLowerCase().replace("*.", "").split(" ")[0]),
-  ) || project.targetIps.some((ip) => targetClean.includes(ip));
+  // 2. Check In Scope (allowlist) — exact allowlist/targetIps match, or a
+  //    private/lab host. Substring tricks like "192.168.1.50.attacker.com" or
+  //    "target-corp.com.evil.net" no longer pass.
+  const isInScope =
+    matchesAnyScope(host, project.inScope) ||
+    matchesAnyScope(host, project.targetIps) ||
+    isPrivateOrLabHost(host);
 
-  if (!isInScope && !targetClean.includes("lab") && !targetClean.includes("local") && !targetClean.includes("192.168.") && !targetClean.includes("10.0.") && !targetClean.includes("127.0.0.1") && !targetClean.includes("localhost")) {
+  if (!isInScope) {
     addAuditLog("SecurityGateway", `EXECUTE_${toolName.toUpperCase()}`, target, "DENIED", "Unauthorized external target outside designated engagement scope");
     return {
       isAllowed: false,

@@ -15,7 +15,7 @@ import {
   validateSecurityGateway,
   diagnoseAndRecoverError,
 } from "./src/server/core/index";
-import { executeTool, GatewayDeniedError } from "./src/server/sandbox/index";
+import { executeTool, GatewayDeniedError, ApprovalRequiredError } from "./src/server/sandbox/index";
 import { buildNmapRequest, summarizeNmapResult, NMAP_TOOL_ID } from "./src/server/tools/index";
 import { runMission, buildOrchestratedMultiAgentPlan } from "./src/server/orchestrator/index";
 import { ZodError } from "zod";
@@ -263,7 +263,7 @@ export async function createApp() {
       return res.status(400).json({ error: "VALIDATION_ERROR", message: projectCheck.error });
     }
 
-    const { toolId, target = "192.168.1.50", params = {}, projectId = "proj_alpha_lab" } = req.body;
+    const { toolId, target = "192.168.1.50", params = {}, projectId = "proj_alpha_lab", approved = false } = req.body;
 
     try {
       let executionResult;
@@ -277,16 +277,20 @@ export async function createApp() {
           image: nmapReq.image,
           params: nmapReq.params,
           projectId,
+          approved: approved === true,
         });
         executionResult = summarizeNmapResult(raw);
       } else {
         // Tools without a dedicated adapter run in the simulation executor.
-        executionResult = await executeTool({ toolId, target, params, projectId });
+        executionResult = await executeTool({ toolId, target, params, projectId, approved: approved === true });
       }
       return res.json(executionResult);
     } catch (err) {
       if (err instanceof GatewayDeniedError) {
         return res.status(403).json({ error: "BLOCKED_BY_GATEWAY", message: err.decision.reason });
+      }
+      if (err instanceof ApprovalRequiredError) {
+        return res.status(428).json({ error: "APPROVAL_REQUIRED", message: err.decision.reason, humanApprovalRequired: true });
       }
       if (err instanceof ZodError) {
         return res.status(400).json({ error: "VALIDATION_ERROR", message: err.issues.map((i) => i.message).join("; ") });

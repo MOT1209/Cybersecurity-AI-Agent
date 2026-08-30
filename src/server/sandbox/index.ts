@@ -28,6 +28,18 @@ export class GatewayDeniedError extends Error {
 }
 
 /**
+ * Thrown when a high-risk tool needs explicit human approval that was not
+ * granted. The caller must pass `approved: true` (a recorded human decision)
+ * to proceed. Map to HTTP 428 (Precondition Required) at the route.
+ */
+export class ApprovalRequiredError extends Error {
+  constructor(public readonly decision: GatewayDecision) {
+    super(`Human approval required before executing this high-risk tool: ${decision.reason}`);
+    this.name = "ApprovalRequiredError";
+  }
+}
+
+/**
  * Resolve which executor to use.
  *   SANDBOX_MODE=local  → always simulate
  *   SANDBOX_MODE=docker → Docker, or simulate if the daemon is unreachable
@@ -51,17 +63,31 @@ export interface ExecuteToolParams {
   params?: Record<string, unknown>;
   projectId?: string;
   actor?: string;
+  /** Recorded human approval, required for high-risk tools. */
+  approved?: boolean;
 }
 
 /**
  * Gateway-guarded tool execution. Throws {@link GatewayDeniedError} when the
- * target is out of scope (map to HTTP 403 at the route). Never throws for a
- * mere tool failure — that is reported via the result status/exitCode.
+ * target is out of scope (map to HTTP 403), or {@link ApprovalRequiredError}
+ * when a high-risk tool is run without `approved: true` (map to HTTP 428).
+ * Never throws for a mere tool failure — that is reported via status/exitCode.
  */
 export async function executeTool(p: ExecuteToolParams): Promise<ToolRunResult> {
   const decision = validateSecurityGateway(p.target, p.toolId, p.projectId);
   if (!decision.isAllowed) {
     throw new GatewayDeniedError(decision);
+  }
+  // Enforce human-in-the-loop for high-risk tools instead of only flagging it.
+  if (decision.humanApprovalRequired && p.approved !== true) {
+    addAuditLog(
+      p.actor || "ToolManager",
+      `BLOCKED_${p.toolId.toUpperCase()}`,
+      p.target,
+      "APPROVAL_REQUIRED",
+      `High-risk tool "${p.toolId}" blocked pending explicit human approval.`,
+    );
+    throw new ApprovalRequiredError(decision);
   }
 
   let executor = await getActiveExecutor();
