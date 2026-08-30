@@ -1,0 +1,179 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Real containerized execution via dockerode. `dockerode` is imported
+ * dynamically so the app never crashes at load time when the package or the
+ * Docker daemon is absent — availability is probed at runtime and the caller
+ * falls back to LocalSimExecutor.
+ *
+ * Isolation posture per container:
+ *   - read-only root filesystem, all Linux capabilities dropped, no-new-privileges
+ *   - 1 CPU / 512MB memory / 256 pids ceiling
+ *   - hard wall-clock timeout (container killed on expiry)
+ *   - network configurable via SANDBOX_DOCKER_NETWORK (default "bridge")
+ */
+
+import type DockerodeType from "dockerode";
+import type { Container } from "dockerode";
+import type { ToolExecutor, ToolRunRequest, ToolRunResult, SandboxInfo } from "./types";
+import { DEFAULT_TIMEOUT_MS } from "./types";
+
+type DockerCtor = new () => DockerodeType;
+
+/** Load dockerode lazily; returns null if the package cannot be imported. */
+async function loadDocker(): Promise<DockerodeType | null> {
+  try {
+    const mod: any = await import("dockerode");
+    const Docker: DockerCtor = mod.default ?? mod;
+    return new Docker();
+  } catch {
+    return null;
+  }
+}
+
+async function pullImage(docker: DockerodeType, image: string): Promise<void> {
+  const stream: NodeJS.ReadableStream = await (docker as any).pull(image);
+  await new Promise<void>((resolve, reject) => {
+    (docker as any).modem.followProgress(stream, (err: unknown) =>
+      err ? reject(err) : resolve(),
+    );
+  });
+}
+
+export class DockerExecutor implements ToolExecutor {
+  readonly id = "docker" as const;
+  private cachedDocker: DockerodeType | null | undefined;
+
+  private async getDocker(): Promise<DockerodeType | null> {
+    if (this.cachedDocker === undefined) {
+      this.cachedDocker = await loadDocker();
+    }
+    return this.cachedDocker;
+  }
+
+  async isAvailable(): Promise<boolean> {
+    const docker = await this.getDocker();
+    if (!docker) return false;
+    try {
+      await docker.ping();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async run(req: ToolRunRequest): Promise<ToolRunResult> {
+    const timestamp = new Date().toISOString();
+    const timeoutMs = req.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const image = req.image;
+    if (!image) {
+      throw new Error(`DockerExecutor requires an image for tool "${req.toolId}"`);
+    }
+
+    const docker = await this.getDocker();
+    if (!docker) {
+      throw new Error("dockerode is not available");
+    }
+
+    const network = process.env.SANDBOX_DOCKER_NETWORK || "bridge";
+    const sandboxBase: Omit<SandboxInfo, "containerId"> = {
+      isolated: true,
+      cpuLimit: "1.0",
+      memoryLimit: "512MB",
+      network,
+      mode: "docker",
+    };
+
+    // Ensure the image exists locally, pulling once if needed.
+    try {
+      await docker.getImage(image).inspect();
+    } catch {
+      await pullImage(docker, image);
+    }
+
+    let container: Container | null = null;
+    try {
+      container = await docker.createContainer({
+        Image: image,
+        Cmd: req.args,
+        Tty: true,
+        AttachStdout: true,
+        AttachStderr: true,
+        HostConfig: {
+          NetworkMode: network,
+          ReadonlyRootfs: true,
+          Memory: 512 * 1024 * 1024,
+          NanoCpus: 1_000_000_000,
+          PidsLimit: 256,
+          CapDrop: ["ALL"],
+          SecurityOpt: ["no-new-privileges"],
+          AutoRemove: false,
+        },
+      });
+
+      await container.start();
+
+      let timedOut = false;
+      let timer: NodeJS.Timeout | undefined;
+      const timeoutPromise = new Promise<{ StatusCode: number }>((resolve) => {
+        timer = setTimeout(async () => {
+          timedOut = true;
+          try {
+            await container!.kill();
+          } catch {
+            /* already gone */
+          }
+          resolve({ StatusCode: 124 });
+        }, timeoutMs);
+      });
+
+      const result = await Promise.race([container.wait(), timeoutPromise]);
+      if (timer) clearTimeout(timer);
+
+      const logBuf = (await container.logs({
+        stdout: true,
+        stderr: true,
+        follow: false,
+      })) as unknown as Buffer;
+      const rawOutput = logBuf.toString("utf8");
+
+      const info = await container.inspect().catch(() => null);
+      const containerId = info?.Id?.substring(0, 12) ?? "unknown";
+      const exitCode = timedOut ? 124 : (result?.StatusCode ?? 0);
+      const status: ToolRunResult["status"] = timedOut
+        ? "TIMEOUT"
+        : exitCode === 0
+          ? "SUCCESS"
+          : "FAILED";
+
+      return {
+        toolId: req.toolId,
+        target: req.target,
+        timestamp,
+        status,
+        exitCode,
+        sandbox: { containerId, ...sandboxBase },
+        rawOutput,
+        structuredData: {
+          simulated: false,
+          targetHost: req.target,
+          scannedAt: timestamp,
+          tool: req.toolId,
+          args: req.args,
+          image,
+          params: req.params ?? {},
+          timeoutMs,
+        },
+      };
+    } finally {
+      if (container) {
+        try {
+          await container.remove({ force: true });
+        } catch {
+          /* best-effort cleanup */
+        }
+      }
+    }
+  }
+}
