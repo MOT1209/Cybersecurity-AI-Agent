@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>مراجعة معمارية وفنية — منصة CyberGuard AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============ CyberGuard AI — Architecture Review (AR/RTL) ============ */
+@page { size: 720px 1020px; margin: 0; }
+:root{
+  --bg:        #0B1220;   /* XL — page background */
+  --surface:   #111A2E;   /* L  — card background */
+  --surface-2: #16223B;   /* L  — elevated surface / table head */
+  --code-bg:   #0A0F1C;   /* code block background (same family, darker) */
+  --border:    #243350;   /* S  — lines & borders */
+  --text:      #E8EEF9;   /* primary text */
+  --muted:     #93A4C3;   /* secondary text */
+  --faint:     #5C6F94;   /* tertiary text / labels */
+  --accent:    #22D3EE;   /* XS — cyan accent (platform identity) */
+  --accent-dk: #164E63;   /* deep cyan for fills */
+  --ok:        #34D399;   /* semantic — low usage */
+  --warn:      #FBBF24;   /* semantic — low usage */
+  --bad:       #FB7185;   /* semantic — low usage */
+}
+html,body{
+  margin:0; padding:0; width:720px;
+  background:var(--bg); color:var(--text);
+  font-family:'Cairo', sans-serif;
+  font-size:14px; line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+@media screen{
+  html{ background:#05080F; }
+  body{ margin:24px auto; zoom:1; box-shadow:0 0 60px rgba(34,211,238,.08); }
+}
+p,td,li,.body-text{ overflow-wrap:break-word; word-break:break-word; text-align:justify; }
+*{ box-sizing:border-box; }
+.mono{ font-family:'JetBrains Mono', monospace; }
+
+/* ---------- Cover (fixed height, one full page) ---------- */
+.cover{
+  width:720px; height:1020px; position:relative;
+  break-after:page; overflow:hidden;
+  display:flex; flex-direction:column; justify-content:center;
+  padding:64px 60px;
+}
+.cover-bg{ position:absolute; inset:0; overflow:hidden; z-index:1;
+  background:
+    radial-gradient(560px 320px at 88% 6%,  rgba(34,211,238,.10), transparent 62%),
+    radial-gradient(480px 300px at 6% 88%, rgba(34,211,238,.07),  transparent 60%),
+    repeating-linear-gradient(0deg,  rgba(36,51,80,.16) 0 1px, transparent 1px 48px),
+    repeating-linear-gradient(90deg, rgba(36,51,80,.16) 0 1px, transparent 1px 48px),
+    var(--bg);
+}
+.cover-struct{ position:absolute; inset:0; z-index:2; }
+.cs-top{ position:absolute; top:30px; right:60px; left:60px; display:flex; justify-content:space-between; align-items:center; }
+.cs-chip{ font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:2px; color:var(--faint); }
+.cs-hex{ position:absolute; top:84px; left:40px; width:118px; height:132px; opacity:.34; }
+.cover-content{ position:relative; z-index:3; }
+.kicker{ display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+.kicker .dot{ width:9px; height:9px; background:var(--accent); box-shadow:0 0 12px rgba(34,211,238,.8); }
+.kicker span{ font-size:12.5px; font-weight:700; letter-spacing:1.5px; color:var(--accent); }
+.kicker-en{ font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:3px; color:var(--faint); text-transform:uppercase; text-align:right; }
+.hero{ font-size:47px; font-weight:900; line-height:1.22; margin:0 0 6px 0; }
+.hero .latin{ font-family:'JetBrains Mono', monospace; color:var(--accent); font-weight:700; }
+.hero-sub{ font-size:21px; font-weight:600; color:var(--muted); margin:0 0 42px 0; line-height:1.5; }
+.hero-div{ width:120px; height:3px; background:linear-gradient(270deg, var(--accent), rgba(34,211,238,.15)); margin:0 0 42px 0; }
+.cover-summary{ font-size:13.5px; line-height:2.0; color:var(--muted); max-width:560px; margin:0 0 34px 0; text-align:justify; }
+.cover-stats{ display:flex; flex-wrap:wrap; gap:12px; max-width:600px; margin-bottom:38px; }
+.cv-stat{ flex:1 1 0; min-width:118px; max-width:100%; background:rgba(17,26,46,.85); border:1px solid var(--border); border-radius:10px; padding:12px 14px 9px; }
+.cv-stat b{ display:block; font-family:'JetBrains Mono', monospace; font-size:21px; font-weight:700; color:var(--accent); line-height:1.3; }
+.cv-stat i{ font-style:normal; font-size:10.5px; color:var(--faint); }
+.cover-meta{ display:flex; flex-direction:column; gap:9px; max-width:560px; }
+.cover-meta .row{ display:flex; gap:10px; font-size:11.5px; }
+.cover-meta .k{ font-family:'JetBrains Mono', monospace; color:var(--faint); min-width:96px; padding-top:2px; font-size:10px; letter-spacing:.5px; }
+.cover-meta .v{ color:var(--text); font-weight:600; }
+.cover-foot{ position:absolute; bottom:46px; right:60px; left:60px; z-index:3;
+  display:flex; justify-content:space-between; align-items:center; }
+.cover-foot .l{ font-family:'JetBrains Mono', monospace; font-size:9.5px; letter-spacing:2px; color:var(--faint); }
+.cover-foot .r{ font-size:10.5px; color:var(--muted); }
+
+/* ---------- Flowing content ---------- */
+.main-content{ padding:56px 60px 46px 60px; }
+.chapter-header{ break-after:avoid; break-inside:avoid; margin-top:26px; }
+.chapter-header:first-child{ margin-top:0; }
+.sec-tag{ display:inline-flex; align-items:center; gap:8px; font-family:'JetBrains Mono', monospace;
+  font-size:10px; letter-spacing:2.5px; color:var(--accent); border:1px solid var(--accent-dk);
+  background:rgba(22,78,99,.22); border-radius:4px; padding:3px 10px; margin-bottom:10px; }
+.sec-title{ font-size:23px; font-weight:900; line-height:1.4; margin:0 0 4px 0; }
+.sec-title::after{ content:''; display:block; height:2px; margin-top:10px;
+  background:linear-gradient(270deg, var(--accent) 0%, rgba(34,211,238,.2) 60%, transparent 100%); }
+h3.sub{ font-size:15.5px; font-weight:700; color:var(--accent); margin:18px 0 6px 0; break-after:avoid; }
+p{ margin:0 0 10px 0; }
+strong{ color:var(--text); font-weight:700; }
+.accent{ color:var(--accent); }
+
+/* cards & callouts */
+.card{ background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:14px 16px 11px; margin-bottom:12px; break-inside:avoid; }
+.card h4{ margin:0 0 5px 0; font-size:13.5px; font-weight:700; color:var(--accent); }
+.card p{ font-size:12.5px; color:var(--muted); margin-bottom:6px; }
+.card .ref{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--faint); display:block; margin-top:2px; }
+.callout{ background:rgba(22,78,99,.14); border-inline-start:3px solid var(--accent);
+  border-radius:6px; padding:10px 14px; margin:0 0 12px 0; break-inside:avoid; font-size:12.5px; color:var(--text); }
+.callout .t{ font-weight:700; color:var(--accent); }
+.callout.warn{ border-inline-start-color:var(--warn); background:rgba(251,191,36,.07); }
+.callout.warn .t{ color:var(--warn); }
+.callout.bad{ border-inline-start-color:var(--bad); background:rgba(251,113,133,.07); }
+.callout.bad .t{ color:var(--bad); }
+
+/* stat band */
+.stat-band{ display:flex; flex-wrap:wrap; gap:12px; margin:4px 0 14px 0; }
+.stat{ flex:1 1 0; min-width:118px; max-width:100%; background:var(--surface); border:1px solid var(--border);
+  border-radius:10px; padding:12px 14px 8px; break-inside:avoid; }
+.stat b{ display:block; font-family:'JetBrains Mono', monospace; font-size:23px; font-weight:700; color:var(--accent); line-height:1.25; }
+.stat i{ font-style:normal; font-size:10.5px; color:var(--faint); }
+
+/* tables */
+table{ width:100%; border-collapse:collapse; font-size:11.5px; margin:0 0 14px 0; }
+thead{ display:table-header-group; }
+tr{ break-inside:avoid; }
+th{ background:var(--surface-2); color:var(--text); font-weight:700; text-align:right;
+  padding:8px 10px; border:1px solid var(--border); font-size:11px; }
+td{ padding:7px 10px; border:1px solid var(--border); color:var(--muted); vertical-align:top; text-align:right; }
+tbody tr:nth-child(odd) td{ background:rgba(17,26,46,.55); }
+td .mono, th .mono{ font-size:10px; }
+.pri{ font-family:'JetBrains Mono', monospace; font-weight:700; font-size:10px; border-radius:4px; padding:1px 8px; white-space:nowrap; }
+.pri-p0{ background:rgba(251,113,133,.14); color:var(--bad); border:1px solid rgba(251,113,133,.4); }
+.pri-p1{ background:rgba(251,191,36,.12);  color:var(--warn); border:1px solid rgba(251,191,36,.35); }
+.pri-p2{ background:rgba(34,211,238,.10);  color:var(--accent); border:1px solid var(--accent-dk); }
+.pri-p3{ background:rgba(52,211,153,.10);  color:var(--ok); border:1px solid rgba(52,211,153,.35); }
+
+/* code blocks — always LTR */
+pre{ direction:ltr; text-align:left; background:var(--code-bg); border:1px solid var(--border);
+  border-radius:8px; padding:12px 14px; margin:0 0 12px 0;
+  font-family:'JetBrains Mono', monospace; font-size:10.5px; line-height:1.65;
+  color:#C9D6EE; overflow-wrap:break-word; white-space:pre-wrap; break-inside:avoid; }
+pre .c{ color:#5C6F94; }      /* comment */
+pre .k{ color:#22D3EE; }      /* keyword/accent */
+pre .s{ color:#34D399; }      /* string/ok */
+pre .w{ color:#FB7185; }      /* warning/risk */
+code{ font-family:'JetBrains Mono', monospace; font-size:10.5px; background:var(--code-bg);
+  border:1px solid var(--border); border-radius:4px; padding:0 5px; color:var(--accent); direction:ltr; unicode-bidi:embed; }
+
+/* findings list */
+.flist{ margin:0 0 12px 0; padding:0; list-style:none; }
+.flist li{ break-inside:avoid; background:var(--surface); border:1px solid var(--border); border-radius:8px;
+  padding:9px 13px; margin-bottom:8px; font-size:12.5px; color:var(--muted); text-align:right; }
+.flist li b{ color:var(--text); display:block; margin-bottom:2px; font-size:12.5px; }
+.flist li .n{ font-family:'JetBrains Mono', monospace; color:var(--accent); font-weight:700; margin-inline-end:6px; }
+
+/* two-col helper */
+.cols2{ display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px; }
+.cols2 .card{ flex:1 1 270px; min-width:260px; max-width:100%; margin-bottom:0; }
+
+/* ending page */
+.ending{ width:720px; height:1020px; break-before:page; overflow:hidden; position:relative;
+  display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; }
+.end-bg{ position:absolute; inset:0; overflow:hidden; z-index:1;
+  background:
+    radial-gradient(600px 360px at 50% 30%, rgba(34,211,238,.09), transparent 62%),
+    repeating-linear-gradient(0deg,  rgba(36,51,80,.14) 0 1px, transparent 1px 48px),
+    repeating-linear-gradient(90deg, rgba(36,51,80,.14) 0 1px, transparent 1px 48px),
+    var(--bg); }
+.end-content{ position:relative; z-index:3; max-width:520px; padding:0 40px; }
+.end-mark{ font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:3px; color:var(--accent); margin-bottom:18px; }
+.end-title{ font-size:30px; font-weight:900; line-height:1.5; margin-bottom:14px; }
+.end-title::after{ content:''; display:block; height:3px; width:110px; margin:28px auto 28px;
+  background:linear-gradient(270deg, var(--accent), rgba(34,211,238,.15)); }
+.end-foot{ position:absolute; bottom:56px; right:60px; left:60px; z-index:3;
+  display:flex; justify-content:space-between;
+  font-family:'JetBrains Mono', monospace; font-size:9.5px; letter-spacing:2px; color:var(--faint); }
+.check{ margin:2px 0 4px 0; padding:0; list-style:none; }
+.check li{ position:relative; padding-inline-start:20px; margin-bottom:7px; font-size:12px; color:var(--muted); text-align:right; break-inside:avoid; }
+.check li::before{ content:''; position:absolute; inset-inline-start:0; top:7px; width:9px; height:9px;
+  border:1.5px solid var(--accent); border-radius:2px; }
+.check li b{ color:var(--text); }
+</style>
+</head>
+<body>
+
+<!-- ================= COVER ================= -->
+<div class="cover">
+  <div class="cover-bg"></div>
+  <div class="cover-struct">
+    <div class="cs-top">
+      <span class="cs-chip">DOC-REV-2026-01</span>
+      <span class="cs-chip">ARCHITECTURE &amp; CODE REVIEW</span>
+    </div>
+    <svg class="cs-hex" viewBox="0 0 150 168" fill="none">
+      <path d="M75 4 L142 42 V126 L75 164 L8 126 V42 Z" stroke="#22D3EE" stroke-opacity=".55" stroke-width="1.5"/>
+      <path d="M75 26 L122 53 V115 L75 142 L28 115 V53 Z" stroke="#243350" stroke-width="1.5"/>
+      <circle cx="75" cy="84" r="10" stroke="#22D3EE" stroke-opacity=".8" stroke-width="1.5"/>
+      <path d="M75 74 V54 M75 114 V94 M65 84 H45 M105 84 H85" stroke="#22D3EE" stroke-opacity=".6" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <div class="cover-content">
+    <div class="kicker">
+      <span class="dot"></span>
+      <span>تقرير مراجعة معمارية وفنية</span>
+      <span class="kicker-en">Deep-Dive Review</span>
+    </div>
+    <h1 class="hero">منصة <span class="latin">CyberGuard AI</span><br/>مراجعة البنية والكود</h1>
+    <div class="hero-sub">تقييم عميق لمستودع Cybersecurity-AI-Agent مع خارطة تطوير ومقترح منظومة توليد التقارير</div>
+    <div class="hero-div"></div>
+    <p class="cover-summary">وثيقة مرجعية شخصية تُقيّم بنية الكود وأمان التنفيذ وقيمة التعلم في منصة الأمن السيبراني متعددة الوكلاء: تحدد نقاط القوة القابلة للبناء عليها، وترصد فرص التحسين مرتبة بالأولوية مع أمثلة كود موثقة من المستودع ذاته، ثم تفصّل خطة تكامل مكتبات توليد التقارير (PDF/DOCX) داخل وحدة ReportBuilder لدعم التعلم والتفاعل بشكل أفضل.</p>
+    <div class="cover-stats">
+      <div class="cv-stat"><b>8,150+</b><i>سطر مصدري تمت مراجعته</i></div>
+      <div class="cv-stat"><b>14</b><i>نقطة نهاية للـ API</i></div>
+      <div class="cv-stat"><b>10</b><i>وحدات واجهة أمامية</i></div>
+      <div class="cv-stat"><b>3</b><i>مزودو ذكاء اصطناعي</i></div>
+    </div>
+    <div class="cover-meta">
+      <div class="row"><span class="k">REPOSITORY</span><span class="v mono">github.com/MOT1209/Cybersecurity-AI-Agent</span></div>
+      <div class="row"><span class="k">DATE</span><span class="v">أغسطس 2026 — مراجعة للإصدار fa11d85 (فرع main)</span></div>
+      <div class="row"><span class="k">FOCUS</span><span class="v">البنية والكود + منظومة توليد التقارير (تكامل داخلي)</span></div>
+      <div class="row"><span class="k">AUDIENCE</span><span class="v">مرجعية تطوير شخصية — اقتراحات دون تعديل الكود</span></div>
+    </div>
+  </div>
+  <div class="cover-foot">
+    <span class="l">CYBERGUARD AI · MULTI-AGENT SECURITY LEARNING PLATFORM</span>
+    <span class="r">الإصدار 1.0</span>
+  </div>
+</div>
+
+<div class="main-content">
+<!-- ================= EXEC SUMMARY ================= -->
+<div class="chapter-header">
+  <div class="sec-tag">EXECUTIVE SUMMARY</div>
+  <div class="sec-title">الملخص التنفيذي</div>
+  
+</div>
+
+<p>منصة <strong>CyberGuard AI</strong> عملٌ تعليمي طموح ومكتمل الملامح: بواجهة ثنائية اللغة عربية/إنجليزية من الأصل إلى الRTL، وطبقة خادم تضم 14 نقطة نهاية، وعشرة أقسام تفاعلية تغطي من تنسيق الوكلاء المتعددين حتى ساحة CTF. الأهم أن المنصة بُنيت بعقلية أمنية صحيحة منذ البداية: تحقق منهجي من المدخلات في كل نقطة نهاية، وتحديد معدل متدرج، وحدود حقن أوامر لنماذج الذكاء الاصطناعي، وبوابة تفويض للأهداف مفهومها التعليمي قيّم بحد ذاته. هذه الأسس نادرة في مشاريع التعلم، وتستحق أن تُبنى عليها بدل إعادة كتابتها.</p>
+
+<p>في المقابل، تتركز فرصة التحسين الأكبر في ثلاثة محاور معمارية: <strong>أولًا</strong> ملف <code>server.ts</code> المونوليثي (1,513 سطرًا) يخلط الميدلوير والمخازن والمنطق والقوالب في وحدة واحدة، <strong>ثانيًا</strong> وجود مسارين متوازيين للاستدعاء الذكي أحدهما يتجاوز طبقة المزودين الموحدة التي بُنيت بعناية، و<strong>ثالثًا</strong> الحالة الكاملة في الذاكرة التي تفقدها المنصة عند كل إعادة تشغيل، ما يمنع تتبع تقدم المتعلم — وهو جوهر هدف «دعم التعلم والتفاعل». على مستوى الواجهة، غياب طبقة تدويل موحدة كلف الكود ثلاثة اصطلاحات ثنائية اللغة متعارضة، واكتُشفت أخطاء وظيفية محددة منها تحدي CTF-02 غير القابل للحل (تم التحقق منه بالفك الفعلي للسلاسل).</p>
+
+<p>بخصوص منظومة التقارير — محور اهتمامك الأساسي — فالوضع الحالي «قالب حرفي» يُرجع Markdown ثابتًا من الخادم ويكتفي بتنزيله بصيغة <code>.md</code>، بينما يمتلك نموذج البيانات <code>SecurityFinding</code> ثراءً مهدورًا (CVSS، الأدلة، كود الترقيع، رقعة الإعداد، خطوات التحصين). التقرير يخصص قسمين كاملين لتصميم منظومة تقارير متكاملة عبر مكتبات تكامل داخلي مقارنة تفصيليًا، توصّل المنصة من «تنزيل ملف نصي» إلى PDF متجهي عربي بقالب مؤسسي ورسوم توزيع شدة، ثم DOCX قابل للتحرير.</p>
+
+<div class="stat-band">
+  <div class="stat"><b>1,513</b><i>سطرًا في server.ts المونوليثي</i></div>
+  <div class="stat"><b>2</b><i>مساران متوازيان للاستدعاء الذكي</i></div>
+  <div class="stat"><b>0</b><i>طبقة تخزين دائمة (كل شيء في الذاكرة)</i></div>
+  <div class="stat"><b>5 / 10</b><i>بنود OWASP Top 10 فقط في قاعدة المعرفة</i></div>
+</div>
+
+<h3 class="sub">أعلى خمس توصيات حسب الأولوية</h3>
+<table>
+  <thead><tr><th style="width:52px">الأولوية</th><th style="width:38%">التوصية</th><th>الأثر المتوقع</th></tr></thead>
+  <tbody>
+    <tr><td><span class="pri pri-p0">P0</span></td><td>إصلاح خطأ ربط CTF بالوكيل (<code>App.tsx:43</code>) وتحدي CTF-02 المعطّل</td><td>استعادة مسارين تعليميين أساسيين دون أي تعديل معماري</td></tr>
+    <tr><td><span class="pri pri-p0">P0</span></td><td>تقسيم <code>server.ts</code> إلى وحدات (routes/services/stores)</td><td>قابلية اختبار وصيانة وتمهيد الطبقة الدائمة والتقارير</td></tr>
+    <tr><td><span class="pri pri-p1">P1</span></td><td>توحيد الاستدعاء الذكي عبر طبقة LLM المركزية وإلغاء <code>getAIClient()</code> المكرر</td><td>تعدد مزودين فعلي في كل المسارات + تقليل ~120 سطرًا مكررًا</td></tr>
+    <tr><td><span class="pri pri-p1">P1</span></td><td>قاموس تدويل موحد <code>t(key)</code> يستبدل الاصطلاحات الثلاثة</td><td>إخماد مئات الثلاثيات المضمنة ومعالجة الحقول العربية-فقط</td></tr>
+    <tr><td><span class="pri pri-p2">P2</span></td><td>طبقة تخزين دائمة (SQLite/Prisma) + تحقق خادمي لأعلام CTF</td><td>ملف متعلم دائم، تقدم محفوظ، وتحديات غير مخترقة من أدوات المطور</td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <span class="t">ثلاثة مخاطر مفاهيمية تستحق الانتباه:</span>
+  (1) مطابقة النطاق في بوابة الأمان بالسلاسل الجزئية قابلة للتجاوز والإنكار الخاطئ (قسم 3 يوثق أمثلة فعلية)؛
+  (2) الأعلام والحلول تُشحن ضمن حزمة العميل فيتحقق التحدي داخل المتصفح؛
+  (3) بعض الأرقام المعروضة (نسبة نجاح 98.4%، «12 وكيلًا نشطًا»، «عزل 100%») قيم ثابتة في الكود تُقدَّم كمؤشرات حية.
+</div>
+
+<!-- ================= SECTION 01 ================= -->
+<div class="chapter-header">
+  <div class="sec-tag">SECTION 01</div>
+  <div class="sec-title">نظرة عامة على المنصة وبنية المستودع</div>
+  
+</div>
+
+<p><strong>ما هي المنصة؟</strong> CyberGuard AI بيئة تعلم تفاعلية للاختراق الأخلاقي والأمن السيبراني تحاكي — دون تنفيذ فعلي — دورة حياة تقييم أمني كاملة: تنسيق مهمة عبر وكلاء متخصصين (استطلاع، أمن ويب، تحليل ثغرات، معالجة، تقارير…)، بوابة تفويض تفرض حدود النطاق المصرح، مركز استعادة أخطاء بقواطع دائرة، مختبر طرفي لمحاكاة أوامر، صندوق أدوات تشفير وفك تشفير يعمل محليًا في المتصفح، قاعدة معرفة OWASP/MITRE، ساحة تحديات CTF، ومنشئ تقارير اختبار اختراق. الفكرة الجوهرية — تعليم مفاهيم التفويض والعزل والاستعادة «بالتجربة المحاكاة» — سليمة تعليميًا وتميزها عن كثير من أدوات التعلم التي تعرض محتوى مقروءًا فقط.</p>
+
+<p><strong>حزمة التقنيات:</strong> الواجهة React 19 مع Vite 6 وTailwind CSS 4 وTypeScript صارم، والخادم Express 4 يُشغَّل عبر tsx في التطوير ويُحزَّم بـ esbuild للإنتاج، مع Vite مدمج كوسيط في وضع التطوير (نمط SPA شائع وفعال). طبقة الذكاء الاصطناعي تلتزم بتجريد <code>LLMProvider</code> واحد بثلاثة تطبيقات: Claude عبر <code>@anthropic-ai/sdk</code> بتحميل كسول، Gemini عبر <code>@google/genai</code>، ومزود محلي حتمي مضمون التوافر يعمل بلا مفاتيح. الاختبارات عبر Vitest + supertest تغطي المصادقة والتحقق والبوابة وحل المزود — غطاء موجز لكنه في المكان الصحيح.</p>
+
+<pre>
+<span class="c">Cybersecurity-AI-Agent/                  ~8,150 سطرًا مصدريًا</span>
+├── server.ts                  <span class="w">1,513</span>  <span class="c">الخادم كاملًا في ملف واحد</span>
+├── src/
+│   ├── App.tsx                  102  <span class="c">التبويبات + تبديل rtl/ltr</span>
+│   ├── types.ts                 321  <span class="c">نموذج المجالات الموثق</span>
+│   ├── lib/api.ts                29  <span class="c">عميل apiFetch المركزي</span>
+│   ├── server/llm/              336  <span class="c">طبقة المزودين (claude/gemini/local)</span>
+│   ├── data/                    752  <span class="c">cyberData + agentPlatformData</span>
+│   └── components/            4,896  <span class="c">10 وحدات واجهة (859 أكبرها)</span>
+├── test/                        141  <span class="c">api.test.ts + llm.test.ts</span>
+├── docs/roadmap-report.html     372  <span class="c">وثيقة خارطة طريق سابقة</span>
+└── bun.lock · vite.config.ts · tsconfig.json · .env.example
+</pre>
+
+<table>
+  <thead><tr><th style="width:24%">الطبقة</th><th style="width:30%">المكونات</th><th>ملاحظة تقييمية</th></tr></thead>
+  <tbody>
+    <tr><td>الواجهة</td><td>React 19 + Tailwind 4 + lucide + react-markdown</td><td>RTL مُدار من الجذر بشكل صحيح، بلا مكتبة إدارة حالة</td></tr>
+    <tr><td>الخادم</td><td>Express 4 + express-rate-limit + dotenv</td><td>تحقق جيد ومعدلات متدرجة؛ البنية تحتاج فصلًا</td></tr>
+    <tr><td>الذكاء الاصطناعي</td><td>طبقة LLM الموحدة + استدعاء Gemini مباشر في الخادم</td><td>التجريد ممتاز لكن مسارين يلتقيان جزئيًا (قسم 3)</td></tr>
+    <tr><td>البيانات</td><td>مخازن داخل الذاكرة + ملفا بيانات ثابتة</td><td>حُدود موثقة في README لكنها عائق للتقدم التعليمي</td></tr>
+    <tr><td>الجودة</td><td>Vitest + supertest + <code>tsc --noEmit</code></td><td>غياب ESLint يُبقي مستوردات ميتة وأنماطًا غير آمنة</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="t">تناقضات إصدارات طفيفة لكنها تلاحَظ:</span>
+  تذييل الواجهة يعرض «Core v3.0» و«Gemini 3.7 Flash Engine» بينما <code>package.json</code> يقول <code>0.1.0</code> والخادم يقصير إلى <code>gemini-2.5-flash</code>. توحيد مصدر حقيقة واحدة لهذه القيم (متغيرات بيئة تُقرأ في مكان واحد) يمنع انزلاق المصداقية أمام مستخدم على دراية.
+</div>
+
+<!-- ================= SECTION 02 ================= -->
+<div class="chapter-header">
+  <div class="sec-tag">SECTION 02</div>
+  <div class="sec-title">نقاط القوة الملموسة</div>
+  
+</div>
+
+<p>قبل تفصيل الملاحظات، من الإنصاف والمنهجية توثيق ما يُحسب للمشروع صراحة، لأن هذه المكونات تشكل «العمود الفقري» الذي أوصي بالبناء عليه وليس استبداله. النقاط الست التالية مرتبة بحسب قيمتها المعمارية، وكل واحدة منها مرفقة بمرجع الملف الدقيق لتسهيل العودة إليها أثناء التطبيق.</p>
+
+<div class="cols2">
+  <div class="card">
+    <h4>1 — تجريد LLM متعدد المزودين نظيف</h4>
+    <p>واجهة <code>LLMProvider</code> واحدة بثلاثة تطبيقات، تحميل كسول للـ SDK بحيث لا يتعطل البناء عند غياب حزمة Claude، تدهور رشيق مضمون إلى مزود محلي حتمي، ورمز حالة تشخيصي بلا أسرار. هذا مستوى تصميم يُدرَّس، ويجعل إضافة مزود ثالث (Grok أو Llama عبر OpenAI-compatible) مسألة ملف واحد.</p>
+    <span class="ref">src/server/llm/{index,types,claudeProvider,geminiProvider,localProvider}.ts</span>
+  </div>
+  <div class="card">
+    <h4>2 — تحقق مدخلات منهجي وليس استثناءً</h4>
+    <p>الدالة <code>validateStringField</code> تُطبق على كل نقطة نهاية تقريبًا: نوع، فراغ، حدود طول صريحة لكل حقل (4,000 للأوامر/الكود، 500 للأهداف). نمط موحد يعيد <code>VALIDATION_ERROR</code> بوصف دقيق. الاستثناء الوحيد: حقن <code>params</code> في <code>/api/tools/execute</code> دون فحص عمق/حجم.</p>
+    <span class="ref">server.ts:22-52 ومواضع الاستدعاء (13 موضعًا)</span>
+  </div>
+  <div class="card">
+    <h4>3 — تحديد معدل متدرج بوعي تكلفة</h4>
+    <p>طبقتان: عالمي 60 طلبًا/15 دقيقة لكل IP على <code>/api/*</code>، وصارم 15/15 على مسارات الذكاء الاصطناعي وحدها، مع رسالة 429 تعيد <code>retryAfterSeconds</code> محسوبة. هذا حماية حقيقية لحصة API مدفوعة — وعي ناضج بمخاطر DoS الاقتصادية لا التقنية فقط.</p>
+    <span class="ref">server.ts:636-710</span>
+  </div>
+  <div class="card">
+    <h4>4 — حدود حقن أوامر لنماذج الذكاء</h4>
+    <p>كل مدخل غير موثوق يُغلَّف بـ <code>&lt;user_input&gt;...&lt;/user_input&gt;</code> مع تعليمة نظام ثابتة <code>INJECTION_GUARD</code> تعامل المحتوى المحصور كبيانات لا تعليمات. الاختبارات تغطي التغليف نفسه. الممارسة مثالية تعليميًا لأنها تحاكي دفاعات الإنتاج الفعلية.</p>
+    <span class="ref">src/server/llm/types.ts:62-72 + اختبار llm.test.ts:56-60</span>
+  </div>
+  <div class="card">
+    <h4>5 — نموذج مجالات موثق بالأنواع</h4>
+    <p><code>types.ts</code> يعرف 321 سطرًا تغطي دورة التقييم كاملة: <code>SecurityFinding</code> بدرجة CVSS وCWE وOWASP وأدلة إثبات وتحقق سلوك إيجابي كاذب وترقيع كود وإعداد، إضافة إلى خطط التنسيق وخطواتها العشر وأحداث الاستعادة. هذا النموذج جاهز ليكون مصدر الحقيقة لمنظومة التقارير المقترحة في القسمين 6-7.</p>
+    <span class="ref">src/types.ts:71-140 (SecurityFinding + OrchestrationPlan)</span>
+  </div>
+  <div class="card">
+    <h4>6 — عادات هندسية صحية</h4>
+    <p>عميل <code>apiFetch</code> مركزي يرفق مفتاح الوصول بمكان واحد، ترويسات ترخيص Apache-2.0 مع شرح في كل ملف، وضع <code>NODE_ENV=test</code> يعزل الخادم عن خدمة الأصول لتشغيل الاختبارات، وREADME صادق يوثق حدود الحالة داخل الذاكرة وصغر قيمة المفتاح المدمج في المتصفح — الشفافية جزء من الجودة.</p>
+    <span class="ref">src/lib/api.ts + server.ts:1480-1494 + README:74-76</span>
+  </div>
+</div>
+<!-- ================= SECTION 03 ================= -->
+<div class="chapter-header">
+  <div class="sec-tag">SECTION 03</div>
+  <div class="sec-title">التحليل المعماري العميق — طبقة الخادم</div>
+  
+</div>
+
+<h3 class="sub">3.1 — المونوليث: ملف واحد يقوم بكل شيء</h3>
+<p>ملف <code>server.ts</code> يضم في وحدة واحدة: دالة تحقق عامة، أربعة مخازن حالة داخلية، محرك تشخيص أخطاء بستة تصنيفات ثنائية اللغة، مولد خطة تنسيق وكلاء كامل بنتائج ثغرات محكاة، ميدلوير المصادقة والحد من المعدل، ثم 14 نقطة نهاية تتراوح بين مشاريع وبوابة وتنسيق وأدوات واستعادة ودردشة وتدقيق وتقارير. النتيجة العملية: أي تعديل بسيط — كإضافة حقل لتقرير — يتطلب فهم السياق الكامل للملف، ولا يمكن اختبار بوابة الأمان بمعزل عن Express، ويتعارض الملف مع مبدأ المسؤولية الواحدة الذي تلتزم به بقية المشروع (طبقة LLM مثال مضاد ممتاز).</p>
+
+<p>المقترح ليس إعادة كتابة بل <strong>تقسيم ميكانيكي يحفظ السلوك</strong>، ويمكن تنفيذه على مراحل مع بقاء الاختبارات الحالية خضراء بعد كل خطوة:</p>
+
+<pre>
+<span class="c">// الهيكلية المستهدفة — تقسيم يحفظ السلوك، لا إعادة كتابة</span>
+server/
+├── app.ts                  <span class="c">تركيب Express + trust proxy + خدمة الأصول</span>
+├── middleware/
+│   ├── auth.ts             <span class="c">x-api-key (مقارنة زمنية-ثابتة لاحقًا)</span>
+│   └── rateLimiters.ts     <span class="c">العالمي 60/15 + الصارم 15/15</span>
+├── routes/
+│   ├── projects.ts · gateway.ts · orchestrator.ts
+│   ├── tools.ts · errorRecovery.ts · geminiRoutes.ts · logs.ts
+├── services/
+│   ├── securityGateway.ts  <span class="c">+ ترقية لمطابقة CIDR دقيقة</span>
+│   ├── orchestratorPlan.ts <span class="c">المولد المحكي الحالي كما هو</span>
+│   └── recoveryEngine.ts   <span class="c">التشخيص + قواطع الدائرة</span>
+├── stores/
+│   └── types.ts            <span class="c">واجهة StateStore → تنفيذ Memory الآن، SQLite في P2</span>
+└── validators/strings.ts   <span class="c">validateStringField (أو zod لاحقًا)</span>
+</pre>
+
+<h3 class="sub">3.2 — مساران متوازيان للذكاء الاصطناعي (الأهم معماريًا)</h3>
+<p>المفارقة الأبرز في المستودع: طبقة <code>src/server/llm</code> بُنيت بعناية في «المرحلة الأولى» بحسب التوثيق، لكنها موصولة فعليًا بمسار واحد فقط (<code>/api/gemini/chat</code>)، بينما يستدعي منسق الوكلاء وتدقيق الكود عميل Gemini مباشرًا عبر دالة <code>getAIClient()</code> داخل الخادم — عميل ثانٍ منفصل عن <code>GeminiProvider</code>. هذا يعني أن <strong>كل</strong> استدعاء تنسيق/تدقيق يفقد التدهور إلى Claude عند فشل Gemini، ويستحيل اختباره بمعزل عن Google SDK، ويضاعف نقاط الضبط (مفتاحان، Model id في مكانين). الكود التالي يلخص الوضع كما هو:</p>
+
+<pre>
+<span class="c">// المسار 1 — يتجاوز الطبقة الموحدة (server.ts:806-892 و 1301-1343)</span>
+<span class="k">const</span> ai = getAIClient();            <span class="c">عميل Gemini مكرر داخل الخادم</span>
+<span class="k">const</span> response = <span class="k">await</span> ai.models.generateContent({ model: GEMINI_MODEL, ... });
+<span class="k">const</span> parsed = JSON.parse(response.text || <span class="s">"{}"</span>);   <span class="w">فشل الصياغة = سقوط يدوي</span>
+
+<span class="c">// المسار 2 — عبر الطبقة الموحدة (server.ts:1243-1246) ✔</span>
+<span class="k">const</span> result = <span class="k">await</span> llmGenerate(chatMessages, { system, temperature: 0.4 });
+<span class="c">                                          // تدهور مضمون claude → gemini → local</span>
+</pre>
+
+<div class="callout">
+  <span class="t">التوصية:</span> حوِّل المنسق والتدقيق إلى <code>generateJSON()</code> الموجودة أصلًا في الطبقة الموحدة (بتمرير وصف المخطط الحالي كـ <code>schemaHint</code>)، ثم احذف <code>getAIClient()</code> والمتغير <code>aiClient</code> بالكامل. الربح: مزودان حقيقيان في كل المسارات، وإزالة ~120 سطرًا من الأنماط المكررة، وإمكانية محاكاة الردود في الاختبارات عبر حقن مزود وهمي.
+</div>
+
+<h3 class="sub">3.3 — الحالة داخل الذاكرة: حد موثق لكنه عائق تعليمي</h3>
+<p>كل الحالة — المشاريع، سجلات التدقيق (سقف 200)، أحداث الاستعادة (سقف 50)، قواطع الدائرة — تُولد برمجيًا وتنتهي مع العملية. التوثيق صادق بشأن ذلك ويحذر من تعدد النسخ، لكن الأثر التعليمي أعمق من التنبيه: لا يمكن لمتعلم العودة إلى مسوده، ولا يبقى أثر لخطأ ارتكبه أمس، ولا يمكن بناء «ملف متعلم» أو تصدير تقرير من مهمة سابقة. الحل الموصى به ليس قاعدة بيانات كاملة من اليوم الأول، بل واجهة <code>StateStore</code> رفيعة (get/list/upsert/append) يطبقها مخزن الذاكرة الآن ثم تنفيذ SQLite عبر Prisma لاحقًا دون لمس نقاط النهاية.</p>
+
+<h3 class="sub">3.4 — هندسة المحاكاة أولاً: قوة تعليمية بشرط الشفافية</h3>
+<p>المنصة تحاكي كل شيء بطبقة خدمات حتمية: <code>/api/tools/execute</code> يعيد دائمًا <code>SUCCESS</code> بمخرجات قالبية، ومولد خطة التنسيق يجد في كل مرة «SQLi بحمولة admin' OR '1'='1» و«مجلد /backup مكشوف» بصرف النظر عن وصف المهمة، والمحاكي الطرفي يعيد نتيجة nmap نفسها لأي أمر يبدأ بها. هذه محاكاة تعليمية مشروعة، لكن الخطر يكمن في الطرح: الواجهة تعرض النتائج بلغة الإنجاز («تم إصدار التقرير النهائي…»، «AI Agent is assembling formal executive report…») مما قد يرسّخ لدى المتعلم انطباعًا بأن هناك فحصًا فعليًا يحدث. توصيتي مزدوجة:</p>
+<ul class="flist">
+  <li><b><span class="n">R1</span>وسم واضح لوضع المحاكاة</b> شارة «SIMULATION» ثابتة على النتائج المحاكاة في الواجهة، وسطر توضيحي في مخرجات الخادم — لئلا يخلط المبتدئ بين محاكاة آمنة وفحص حقيقي.</li>
+  <li><b><span class="n">R2</span>واجهة Executor قابلة للتبديل</b> تعريف <code>ToolExecutor { run(toolId, target, params) }</code> بتطبيقين: <code>SimulatedExecutor</code> (الحالي) و<code>DockerExecutor</code> مستقبليًا لتشغيل أدوات حقيقية داخل حاوية معزولة على هدف مختبر — فتتحول المنصة من بيئة عرض إلى بيئة تمرين فعلية دون تغيير نقاط النهاية.</li>
+</ul>
+
+<h3 class="sub">3.5 — بوابة الأمان: المطابقة بالسلاسل الجزئية قابلة للتجاوز</h3>
+<p>بوابة التفويض مفهومها ممتاز، لكن تطبيقها يعتمد على <code>includes()</code> النصية في الاتجاهين (السماح والمنع)، وهذا يولّد ثلاث فئات من العيوب يمكن للمتعلم الفضولي اكتشافها وتجربتها فورًا:</p>
+
+<pre>
+<span class="c">// server.ts:369-373 — المنح ضمن النطاق بالمطابقة الجزئية</span>
+<span class="k">const</span> isInScope = project.inScope.some(<span class="k">a</span> =&gt; targetClean.includes(a.replace(<span class="s">"*."</span>, <span class="s">""</span>)))
+  || targetClean.includes(<span class="s">"192.168."</span>) || targetClean.includes(<span class="s">"lab"</span>) || targetClean.includes(<span class="s">"local"</span>);
+
+<span class="w">// تجاوز فعلي:</span>  <span class="s">"evil-lab.attacker.com"</span> يجتاز لأنه يحوي "lab"
+<span class="w">// تجاوز فعلي:</span>  <span class="s">"192.168.1.50.evil.com"</span> يجتاز لأنه يحوي IP النطاق كجزئية
+<span class="w">// إنكار خاطئ:</span>  outOfScope يحوي <span class="s">"192.168.1.1"</span> فيُرفض <span class="s">"192.168.1.10"</span> (includes جزئي)
+</pre>
+
+<p>المعالجة ثلاثية: مطابقة IP عبر مكتبة CIDR مثل <code>ipaddr.js</code> (تحليل ثم احتواء شبكة)، ومطابقة مضيفين بالنطاق الدقيق بعد إزالة نقطة النهاية بدل الاحتواء، وحذف «الهروب الشامل» الذي يسمح لأي هدف يحوي كلمة <code>lab</code> أو <code>local</code>. من الناحية التعليمية أقترح إبقاء نسخة «الثغرة» موثقة كدرس قائمة بجانب النسخة المصححة — فتحليل سبب قابلية التجاوز هو بالضبط نوع التعلم الذي صُممت المنصة لأجله.</p>
+
+<h3 class="sub">3.6 — ملاحظات خادم إضافية موثقة</h3>
+<table>
+  <thead><tr><th style="width:30%">الموضع</th><th style="width:40%">الملاحظة</th><th>الأثر</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">server.ts:633</td><td>سقف جسم الطلب 15MB بينما أكبر حقل مقبول 4,000 حرف</td><td>سطح DoS ذاكرة بلا فائدة وظيفية؛ 1MB كافٍ جدًا</td></tr>
+    <tr><td class="mono">عام</td><td>لا Helmet ولا ترويسات أمن ولا سياسة CORS معلنة</td><td>غياب X-Content-Type-Options/HSTS في الإنتاج</td></tr>
+    <tr><td class="mono">server.ts:695</td><td>مقارنة مفتاح الوصول بـ <code>!==</code> غير الزمنية-الثابتة</td><td>هامشي هنا، لكن استبدالها بـ <code>timingSafeEqual</code> عادة يستحق التعليم</td></tr>
+    <tr><td class="mono">server.ts:1034</td><td><code>successRatePercentage: 98.4</code> قيمة ثابتة تُعرض كمؤشر حي</td><td>يُضعف الثقة بمؤشرات حقيقية أخرى كعدد الاستعادات</td></tr>
+    <tr><td class="mono">server.ts:1063-1129</td><td>مسار الذكاء الاصطناعي للاستعادة لا يحدّث قواطع الدائرة بعكس المسار المحلي</td><td>تناقض حالة يظهر في شبكة القواطع بعد تشخيصات AI</td></tr>
+    <tr><td class="mono">server.ts:897 وغيرها</td><td>معرفات <code>plan_${Date.now()}</code> قابلة للاصطدام تحت تزامن</td><td>استبدالها بـ <code>crypto.randomUUID()</code> أكثر أمانًا وتعليمًا</td></tr>
+    <tr><td class="mono">server.ts:808-830</td><td>نصوص عربية لغة-قوالب مدمجة في منطق الخادم</td><td>نقلها لطبقة قوالب تسهّل إضافة لغات وتراجع الصياغة</td></tr>
+  </tbody>
+</table>
+
+<!-- ================= SECTION 04 ================= -->
+<div class="chapter-header">
+  <div class="sec-tag">SECTION 04</div>
+  <div class="sec-title">التحليل المعماري العميق — الواجهة الأمامية</div>
+  
+</div>
+
+<h3 class="sub">4.1 — ثلاثة اصطلاحات تدويل متعارضة بلا طبقة موحدة</h3>
+<p>اللغة تُمرر كخاصية <code>'ar' | 'en'</code> من <code>App.tsx</code> إلى كل مكون، ثم يتعامل كل مكون معها بطريقته: مئات الثلاثيات المضمنة <code>{isAr ? '…' : '…'}</code> في JSX، وحقول متوازية <code>titleAr/titleEn</code> في المصفوفات المحلية، وخرائط <code>labelAr/labelEn</code> في أخرى. الأسوأ أن بعض الحقول عربية-فقط وتُعرض للغتين معًا: حقلا <code>impact/prevention</code> في بنود OWASP وأوصاف تقنيات MITRE في <code>cyberData.ts</code> تُرسم كما هي في وضع الإنجليزية. الاستثمار في قاموس واحد <code>t(key)</code> أو مساعد <code>{ar, en}</code> ينهار هذا التنوع إلى اصطلاح واحد قابل للتدقيق الآلي.</p>
+
+<h3 class="sub">4.2 — أخطاء وظيفية مؤكدة (تحقق يدوي)</h3>
+<div class="callout bad">
+  <span class="t">خطأ الربط CTF → الوكيل:</span> خاصية <code>onAskAgentAboutChallenge</code> التي يمررها <code>CtfArena</code> مع السيناريو كاملًا يُهمل الوسيط في <code>App.tsx:43-45</code> وينتقل إلى تبويب <code>orchestrator</code> بدل <code>agent</code> — زر «اسأل المرشد الذكي» عن التحدي لا يفعل المطلوب. الإصلاح سطر واحد: <code>setActiveTab('agent')</code> مع تخزين السيناريو في حالة مشتركة.
+</div>
+
+<div class="callout bad">
+  <span class="t">تحدي CTF-02 غير قابل للحل (تم التحقق بالفك):</span> السلسلة السداسية في نص السيناريو <code>526b7842…7d</code> تفكك إلى <code>RkxBR05vbmVyc2VjcnV0eXNkYW5jZTIwMjY}</code> وهي Base64 غير صالحة (خطأ padding) ولا تفكك إلى العلم المعلن <code>FLAG{never_rely_on_encoding_for_security_2026}</code>؛ التلميح الثاني يقول إن الناتج يبدأ بـ <code>RkxCU…</code> وهو أيضًا خطأ (الناتج الفعلي يبدأ <code>RkxBR…</code>)، بينما يذكر «شرح الحل» سلسلة Base64 صحيحة مختلفة عن ما تنتجه البيانات فعليًا — أي أن المشكلة في الـ hex وليست في شرحه. الإصلاح: استبدال السلسلة السداسية بترميز السلسلة الصحيحة: <span class="mono" style="font-size:9.5px;direction:ltr;unicode-bidi:embed;word-break:break-all;overflow-wrap:anywhere">526B7842523374755A585A6C636C39795A57783558323975583256755932396B6157356E58325A76636C397A5A574E31636D6C30655638794D44493266513D3D</span>.
+</div>
+
+<h3 class="sub">4.3 — أعلام التحديات داخل حزمة العميل</h3>
+<p>قيم <code>flag</code> وشروحات الحل لكافة التحديات تُشحن نصًا صريحًا في حزمة JavaScript (<code>cyberData.ts</code>) والتحقق مجرد مقارنة سلسلة في المتصفح، فيمكن استخراج الأعلام كلها من أدوات المطور في ثوانٍ — وهو نمط يتعارض مع درس أمني تعتزم المنصة إيصاله. الحل الموصى به: نقطة نهاية صغيرة <code>POST /api/ctf/submit {scenarioId, flag}</code> تتحقق خادميًا وتسجل التقدم في المخزن الدائم عند وصوله، مع إبقاء التلميحات في العميل. بمجرد وصول طبقة التخزين (P2) تُفتح مجانًا ميزات «أعلامي/لوحة تقدم».</p>
+
+<h3 class="sub">4.4 — كود ميت وتكرار أنماط</h3>
+<p>قرابة 40% من <code>agentPlatformData.ts</code> لا يستهلكه أي مكون: <code>TOOL_PLUGINS</code> (150 سطرًا من تعريفات أدوات موثقة) و<code>LAB_ENVIRONMENTS</code> (بيئات مختبرات مع docker-compose hints وأعلام) وحقلا <code>systemPrompt/capabilities</code> في <code>SYSTEM_AGENTS</code>. هذا ليس فائضًا للقص بل <strong>رأس مال مؤجل</strong>: تعريفات الأدوات هي بالضبط ما يحتاجه مُشغّل DockerExecutor المستقبلي، وبيئات المختبرات هي بوابة المختبرات الحقيقية في القسم 8. الأفضل تفعيلها تدريجيًا بدل حذفها. أما التكرار الحي فهو أكثر إلحاحًا:</p>
+<table>
+  <thead><tr><th style="width:38%">النمط المكرر</th><th style="width:22%">التكرار</th><th>المعالجة المقترحة</th></tr></thead>
+  <tbody>
+    <tr><td>نسخ للحافظة + مؤقت إعادة حالة 2 ثانية</td><td class="mono">6 مرات</td><td>خطاف <code>useCopy()</code> واحد مع تنظيف المؤقت عند إلغاء التركيب (المؤقتات حاليًا بلا cleanup)</td></tr>
+    <tr><td>خرائط ألوان الشدة/الصعوبة</td><td class="mono">5 اصطلاحات</td><td>موديول <code>severity.ts</code> موحد (فئة + نص + لون) يستهلكه الجميع</td></tr>
+    <tr><td>نماذج جلب يدوية (method/headers/body + فحص ok)</td><td class="mono">كل مكون</td><td>طبقة <code>api/</code> موصوفة بالأنواع — لا حاجة لتكرار Content-Type فأصله موجود في apiFetch</td></tr>
+    <tr><td>شريط تبويب داخلي بنفس الأصناف الشرطية</td><td class="mono">5+ مكونات</td><td>مكون <code>&lt;SegmentedTabs&gt;</code> مشترك مع <code>role="tablist"</code></td></tr>
+    <tr><td>تنفيذ MD5 يدوي بطول 150 سطرًا داخل جسم المكون</td><td class="mono">CyberToolbox:49</td><td>نقله لدالة موديولية خالصة (يُعاد إنشاؤه حاليًا في كل رسم) أو Web Worker</td></tr>
+  </tbody>
+</table>
+
+<h3 class="sub">4.5 — إمكانية الوصول وRTL</h3>
+<p>التبديل على مستوى المستند مضبوط جيدًا (<code>document.documentElement.dir/lang</code> في App.tsx مع افتراضي RTL في index.html)، لكن داخل المكونات الصفر التام لخصائص ARIA في كامل الشجرة: أشرطة التبويب أزرار بلا <code>role="tab"/aria-selected</code>، والأزرار الأيقونية (نسخ/مسح/تشغيل) تعتمد <code>title</code> وحده، والحالات تُنقل باللون وحده بلا <code>aria-live</code> للنتائج غير المتزامنة. في RTL تحديدًا تظهر مشكلة ثانية: خصائص فيزيائية مثل <code>absolute left-2.5 + pl-8</code> في حقول البحث تجعل عدسة التكبير تقع في الجهة الخطأ عند العربية، وتُصلَح ببدائل منطقية (<code>start-2.5/ps-8</code>). إضافة <code>ErrorBoundary</code> واحد حول التبويبات ستحول انهيار أي مكون من «شاشة بيضاء كاملة» إلى رسالة معزولة — إصلاح منخفض الكلفة عالٍ القيمة لمنصة تتعامل مع ردود ذكاء اصطناعي متغيرة البنية.</p>
+
+<table>
+  <thead><tr><th style="width:34%">الموضع</th><th style="width:40%">الملاحظة</th><th>الأولوية</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">App.tsx:43-45</td><td>ربط CTF→وكيل يتجاهل السيناريو ويذهب لتبويب خاطئ</td><td><span class="pri pri-p0">P0</span></td></tr>
+    <tr><td class="mono">cyberData.ts:294-313</td><td>CTF-02: hex لا يفكك إلى العلم (تحدي معطل)</td><td><span class="pri pri-p0">P0</span></td></tr>
+    <tr><td class="mono">تسع واجهات</td><td>فقدان حالة الشات/الطرفية/التقدم عند تبديل التبويب (إلغاء تركيب) ولا persistence للغة والتقدم</td><td><span class="pri pri-p1">P1</span></td></tr>
+    <tr><td class="mono">App.tsx:59-73</td><td>لا ErrorBoundary — انهيار مكون واحد يبيض التطبيق كله</td><td><span class="pri pri-p0">P0</span></td></tr>
+    <tr><td class="mono">6 مواضع نسخ</td><td><code>setTimeout</code> بلا تنظيف عند إلغاء التركيب + clipboard بلا try/catch</td><td><span class="pri pri-p1">P1</span></td></tr>
+    <tr><td class="mono">cyberData.ts:124-221</td><td>قاعدة OWASP تعرض «Top 10» وتضم 5 بنود فقط (A01–A05) ببيانات 2021</td><td><span class="pri pri-p1">P1</span></td></tr>
+    <tr><td class="mono">كل الشجرة</td><td>صفر aria/role؛ حقول بحث بخصائص فيزيائية تنعكس خطأ في RTL</td><td><span class="pri pri-p2">P2</span></td></tr>
+    <tr><td class="mono">CyberToolbox:202,228</td><td>استخدام <code>escape/unescape</code> المهجورة</td><td><span class="pri pri-p2">P2</span></td></tr>
+  </tbody>
+</table>
+<!-- ================= SECTION 05 ================= -->
+<div class="chapter-header">
+  <div class="sec-tag">SECTION 05</div>
+  <div class="sec-title">توصيات التحسين المرتبة بالأولوية</div>
+  
+</div>
+
+<p>الجدول التالي يدمج كل ملاحظات التقرير في خطة تنفيذ واحدة قابلة للتتبع. الأولويات محكومة بقاعدتين: P0 ما يستعيد وظائف معطلة أو يغلق مخاطر فعلية بأقل جهد، ثم ما يفتح الطريق لطبقات البناء الأعلى (تخزين دائم، تقارير، مختبرات حقيقية). كل بند مرفق بموضعه التقريبي والفائدة التعليمية المباشرة منه حتى تبقى خطة التطوير نفسها مادة تعلم.</p>
+
+<table>
+  <thead><tr><th style="width:46px">الطبقة</th><th style="width:44%">بند العمل</th><th style="width:22%">الملفات المتأثرة</th><th>القيمة</th></tr></thead>
+  <tbody>
+    <tr><td><span class="pri pri-p0">P0</span></td><td>إصلاح ربط «اسأل المرشد» بالتحديات (تخزين السيناريو المختار والانتقال لتبويب الوكيل)</td><td class="mono">App.tsx, CtfArena.tsx</td><td>مسار تعلم رئيسي يعمل</td></tr>
+    <tr><td><span class="pri pri-p0">P0</span></td><td>تصحيح سلسلة CTF-02 السداسية إلى ترميز العلم الصحيح</td><td class="mono">cyberData.ts</td><td>تحدي قابل للحل فعليًا</td></tr>
+    <tr><td><span class="pri pri-p0">P0</span></td><td>خفض سقف الجسم إلى 1MB + ErrorBoundary حول التبويبات + try/catch للحافظة</td><td class="mono">server.ts, App.tsx</td><td>متانة بجهد ساعات</td></tr>
+    <tr><td><span class="pri pri-p0">P0</span></td><td>وسم «SIMULATION» على النتائج المحاكاة (تنسيق/أدوات/طرفية)</td><td class="mono">3 مكونات عرض</td><td>نزاهة تعليمية</td></tr>
+    <tr><td><span class="pri pri-p1">P1</span></td><td>تقسيم server.ts وفق هيكلية القسم 3.1 مع إبقاء الاختبارات خضراء</td><td class="mono">server.ts → server/*</td><td>بوابة كل التحسينات اللاحقة</td></tr>
+    <tr><td><span class="pri pri-p1">P1</span></td><td>توحيد مسار الذكاء الاصطناعي عبر generateJSON وحذف getAIClient</td><td class="mono">server.ts, llm/*</td><td>مزودان في كل المسارات</td></tr>
+    <tr><td><span class="pri pri-p1">P1</span></td><td>ترقية بوابة النطاق: ipaddr.js للـ CIDR ومطابقة مضيف دقيقة وإلغاء هروب lab/local</td><td class="mono">securityGateway</td><td>مفهوم التفويض يصبح صحيحًا</td></tr>
+    <tr><td><span class="pri pri-p1">P1</span></td><td>قاموس <code>t(key)</code> موحد + استكمال OWASP إلى 10 بنود وربط حقول عربية-فقط</td><td class="mono">src/i18n, cyberData</td><td>محتوى ثنائي اللغة مكتمل</td></tr>
+    <tr><td><span class="pri pri-p1">P1</span></td><td>useCopy + severity.ts + SegmentedTabs + إضافة Helmet وترويسات الأمان</td><td class="mono">src/lib, server</td><td>إخماد 20+ تكرارًا</td></tr>
+    <tr><td><span class="pri pri-p2">P2</span></td><td>StateStore بتنفيذ SQLite/Prisma للمشاريع والسجلات والنتائج والأعلام</td><td class="mono">stores/*, schema.prisma</td><td>تقدم دائم وملف متعلم</td></tr>
+    <tr><td><span class="pri pri-p2">P2</span></td><td>تحقق خادمي لأعلام CTF مع تسجيل التقدم ومنع استخراج الأعلام من الحزمة</td><td class="mono">ctfRoutes, CtfArena</td><td>نزاهة التحديات</td></tr>
+    <tr><td><span class="pri pri-p2">P2</span></td><td>منظومة التقارير وفق القسمين 6-7 (قالب، PDF متجهي، ربط خط النتائج)</td><td class="mono">report/*, ReportBuilder</td><td>المحور الأهم لديك</td></tr>
+    <tr><td><span class="pri pri-p2">P2</span></td><td>واجهة ToolExecutor تحضّر DockerExecutor المستقبلي + تفعيل TOOL_PLUGINS</td><td class="mono">services/executors</td><td>من المحاكاة إلى التمرين</td></tr>
+    <tr><td><span class="pri pri-p3">P3</span></td><td>ملف متعلم: مسارات صعوبة، XP وشارات، تصدير تقرير تقدم (يستهلك منظومة التقارير)</td><td class="mono">profile/*</td><td>تعلم متصل ومحفّز</td></tr>
+    <tr><td><span class="pri pri-p3">P3</span></td><td>WebSocket لسجلات حية بدل مصفوفات ثابتة + نظام أدوار ARIA شامل</td><td class="mono">ws/*, components</td><td>تفاعل واقعي وشامل</td></tr>
+    <tr><td><span class="pri pri-p3">P3</span></td><td>مختبرات حقيقية معزولة: تفعيل LAB_ENVIRONMENTS مع docker-compose (Juice Shop/DVWA)</td><td class="mono">labs/*</td><td>تمارين فعلية آمنة</td></tr>
+  </tbody>
+</table>
+
+<!-- ================= SECTION 06 ================= -->
+<div class="chapter-header">
+  <div class="sec-tag">SECTION 06</div>
+  <div class="sec-title">منظومة توليد التقارير — الوضع الحالي والفجوات</div>
+  
+</div>
+
+<p>وحدة التقارير هي الأقرب لطلبك («تقارير شاملة تمكّنني من التطوير») ولذلك فُصلت في قسمين. سلوك النظام الحالي محسوم من الكود: الواجهة تجمع بيانات النموذج وقائمة الثغرات، ثم يستقبل الخادم الطلب في <code>/api/gemini/generate-report</code> ويعيد — بالتصميم الموثق في README — <strong>قالب Markdown حرفيًا</strong> لا يستدعي أي نموذج ذكاء اصطناعي، تُعرضه الواجهة عبر react-markdown مع زر نسخ وزر تنزيل <code>.md</code>. الغريب الإيجابي أن نموذج البيانات الغني موجود كاملًا في <code>SecurityFinding</code> (تولَّد نسخ منه في كل مهمة تنسيق!) بينما تستخدم وحدة التقارير نموذجًا مبسطًا <code>SecurityReportFinding</code> يهدر خمسة من أهم الحقول.</p>
+
+<pre>
+<span class="c">// خط الأنابيب الحالي — يلاحظ منه:</span>
+UI findings (<span class="k">SecurityReportFinding</span> مبسط) ──▶ POST /api/gemini/generate-report
+     ──▶ <span class="w">قالب حرفي ثابت</span> (جدول واحد لكل الثغرات: title/severity/cwe فقط)
+     ──▶ ReactMarkdown + تنزيل .md        <span class="c">لا PDF · لا DOCX · لا رسوم · لا نطاق/منهجية كاملة</span>
+
+<span class="c">// الثروة المهملة في SecurityFinding (تولَّد فعلاً في كل مهمة):</span>
+cvssScore · evidence · validation.falsePositiveAnalysis
+remediation.{codeFix, configPatch, hardeningSteps, verificationCommand} · owaspCategory
+</pre>
+
+<h3 class="sub">الفجوات الثماني المحددة</h3>
+<ul class="flist">
+  <li><b><span class="n">G1</span>لا مخرجات مؤسسية</b> — تنزيل Markdown وحده؛ لا PDF متجهي ولا DOCX قابل للتحرير، وكلاهما متوقع في أي سيناريو تقييم حقيقي.</li>
+  <li><b><span class="n">G2</span>قالب أعمى بالهيكل</b> — نص القالب ثابت في الخادم: الملخص التنفيذي وخارطة المعالجة نصوص مقولة مسبقًا لا تتأثر بالمحتوى، وscope المستلم لا يُستخدم في الإخراج.</li>
+  <li><b><span class="n">G3</span>تهريب ثراء البيانات</b> — CVSS والأدلة وcodeFix وconfigPatch وخطوات التحصين كلها متاحة في نموذج المهمة ولا تصل للتقرير.</li>
+  <li><b><span class="n">G4</span>لا ارتباط بوقائع المهمة</b> — نتائج Orchestrator المولدة (generatedFindings) تعيش في حالة المكون وتختفي عند تبديل التبويب، ولا تصل لوحدة التقارير تلقائيًا.</li>
+  <li><b><span class="n">G5</span>لا تمثيل بصري</b> — لا توزيع شدة ولا نسب تحقق ولا مصفوفة OWASP؛ المدراء يقرؤون الجداول أفضل من الشارات.</li>
+  <li><b><span class="n">G6</span>لا تمييز جمهور</b> — الملخص التنفيذي والتفصيل التقني ينصهران في قالب واحد؛ التقارير الجادة تفصل القسمين بمستويات تفصيل مختلفة.</li>
+  <li><b><span class="n">G7</span>لا هوية وطباعة</b> — لا غلاف، لا ترويسة/تذييل، لا ترقيم صفحات، لا تصنيف سرية، ولا معلومات منهجية كاملة (المنهجية مذكورة نصًا فقط).</li>
+  <li><b><span class="n">G8</span>لا مسودات ولا إصدارات</b> — التقرير حالة مؤقتة في الذاكرة؛ لا حفظ ولا رقم إصدار ولا سجل تعديلات.</li>
+</ul>
+
+<!-- ================= SECTION 07 ================= -->
+<div class="chapter-header">
+  <div class="sec-tag">SECTION 07</div>
+  <div class="sec-title">المكتبات الموصى بها للتكامل الداخلي</div>
+  
+</div>
+
+<p>المعايير الحاكمة للاختيار هنا: <strong>دعم العربية/RTL أصلًا لا كحيلة</strong> (تشكيل الحروف واتجاه الفقرات)، و<b>جودة الإخراج</b> بما يليق بتقرير يُسلَّم لجهة، و<b>كلفة التشغيل</b> على خادم صغير، و<b>التوافق</b> مع stack قائم (Express + React). الجدول التالي يرشح المرشحين بصراحة كاملة، ثم يأتي مقترح الطريق المركب.</p>
+
+<table>
+  <thead><tr><th style="width:23%">المكتبة</th><th style="width:19%">الدور</th><th style="width:24%">دعم RTL/العربية</th><th>متى تختارها</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">Handlebars / EJS</td><td>محرك قوالب HTML</td><td class="accent">ممتاز — HTML أصلًا يدير الاتجاه بـ dir/css</td><td>الأساس قبل أي مولد PDF: فصل القالب عن المنطق، قالبان (عربي/إنجليزي) من مصدر بيانات واحد</td></tr>
+    <tr><td class="mono">Puppeteer (خادمي)</td><td>PDF متجهي من HTML</td><td class="accent">ممتاز — محرك Chromium يشكّل العربية ويدعم @page/ترويسة/ترقيم</td><td>الخيار الأول لجودة الإنتاج؛ التكلفة تثبيت Chromium على الخادم (~300MB) دون أي عبء على متصفح المستخدم</td></tr>
+    <tr><td class="mono">@react-pdf/renderer</td><td>PDF برمجي من مكونات React</td><td>جزئي — يدعم direction/rtl مع تسجيل خط عربي، لكن الجداول والتفاصيل الدقيقة تقريبية</td><td>تقارير برمجية بمكوّنات موحدة الهوية بلا قوالب HTML وبلا متصفح</td></tr>
+    <tr><td class="mono">html2pdf.js (html2canvas)</td><td>PDF من DOM في المتصفح</td><td>جيد بصريًا (يلقط RTL كما يعرضه المتصفح)</td><td>تصدير سريع للمعاينة فقط — الناتج نص صوري غير قابل للتحديد/البحث</td></tr>
+    <tr><td class="mono">jsPDF + autotable</td><td>PDF برمجي عميل</td><td class="bad">ضعيف للعربية — لا تشكيل حروف ولا bidi أصيل</td><td>تيارات إنجليزية فقط؛ لا أنصح به لمخرجات عربية كثيفة النص</td></tr>
+    <tr><td class="mono">docx (npm)</td><td>DOCX قابل للتحرير</td><td class="accent">جيد — يدعم bidi على مستوى القسم والفقرة والجداول</td><td>عندما يطلب «العميل» ملفًا يعدّله فريقه — مكمل وليس بديلًا عن PDF</td></tr>
+    <tr><td class="mono">Recharts / Chart.js</td><td>رسوم التقرير (توزيع شدة، نسب تحقق)</td><td>جيد مع خط عربي مناسب في التسميات</td><td>لوحات تنفيذية داخل القالب قبل التصدير</td></tr>
+    <tr><td class="mono">markdown-it + highlight.js</td><td>طبقة تحرير مخرجات LLM</td><td>جيد</td><td>إذا لاحقًا صار التقرير نصًا مولدًا: تنقية ثم حقنه في القالب بدل Markdown الخام</td></tr>
+  </tbody>
+</table>
+
+<h3 class="sub">الطريق المركب الموصى به (ثلاث مراحل)</h3>
+<div class="cols2">
+  <div class="card">
+    <h4>المرحلة 1 — أسبوع: قالب Handlebars + طباعة المتصفح</h4>
+    <p>مخطط بيانات JSON موحد يملأ فجوات G2/G3 (كل حقول SecurityFinding تصل التقرير)، قالب <code>report-ar.hbs</code> كامل الأقسام (غلاف، ملخص تنفيذي، مصفوفة نتائج، تفاصيل لكل نتيجة بأدلتها وترقيعها، منهجية ونطاق)، وزر «طباعة/PDF» عبر print CSS. RTL مثالي فورًا وبدون أي اعتماد خادمي جديد، ويحل G1 جزئيًا وG6/G7 كليًا.</p>
+  </div>
+  <div class="card">
+    <h4>المرحلة 2 — أسبوعان: PDF متجهي خادمي</h4>
+    <p>نقطة نهاية <code>GET /api/reports/:id/pdf</code> تعيد استخدام القالب نفسه عبر Puppeteer مع خط عربي مضمّن وprintBackground وترقيم @page — تحل G1 كاملة بجودة طباعة فعلية، وتفعّل G8 بتخزين المسودات في StateStore مع رقم إصدار. القالب واحد يخدم الويب والطباعة عبر ورقة أنماط print.</p>
+  </div>
+  <div class="card">
+    <h4>المرحلة 3 — أسبوعان: DOCX + رسوم + ربط خط النتائج</h4>
+    <p>مخرج <code>docx</code> موازي من نفس المخطط (نفس البيانات، قالب ثانٍ)، وRecharts للتوزيع الشددي داخل القالب (G5)، وربط زر «استيراد نتائج المهمة» ينقل generatedFindings من Orchestrator إلى ReportBuilder بدل الإدخال اليدوي (G4). عندها تكتمل منظومة: مهمة محاكاة → نتائج → تقرير PDF/DOCX موقّع بمنهجية ونطاق.</p>
+  </div>
+  <div class="card">
+    <h4>لمسات الجودة التي تفرّق التقرير المؤسسي</h4>
+    <p>تصنيف سرية في الغلاف والتذييل، جدول تحكم بالإصدارات، معرّف تقرير ومعرّف تتبع مهمة من <code>traceId</code> الموجود أصلًا، صفحة منهجية تسرد WSTG/PTES/NIST مع حدود الاختبار، وقسم «إعادة الاختبار» يستهلك حقل retestStatus الموجود في النموذج. تفاصيل صغيرة تصنع مصداقية المخرج التعليمي كتدريب حقيقي.</p>
+  </div>
+</div>
+
+<pre>
+<span class="c">// مسار المرحلة 2 — جوهر التنفيذ (Express + Handlebars + Puppeteer)</span>
+<span class="k">import</span> puppeteer <span class="k">from</span> <span class="s">'puppeteer'</span>;
+<span class="k">import</span> Handlebars <span class="k">from</span> <span class="s">'handlebars'</span>;
+
+app.get(<span class="s">'/api/reports/:id/pdf'</span>, <span class="k">async</span> (req, res) =&gt; {
+  <span class="k">const</span> data = <span class="k">await</span> reportStore.get(req.params.id);        <span class="c">من StateStore</span>
+  <span class="k">const</span> html = tplAr({ ...data, t: dict[req.query.lang ?? <span class="s">'ar'</span>] });
+  <span class="k">const</span> browser = <span class="k">await</span> puppeteer.launch({ args: [<span class="s">'--no-sandbox'</span>] });
+  <span class="k">const</span> page   = <span class="k">await</span> browser.newPage();
+  <span class="k">await</span> page.setContent(html, { waitUntil: <span class="s">'networkidle0'</span> });  <span class="c">انتظار الخطوط</span>
+  <span class="k">const</span> pdf = <span class="k">await</span> page.pdf({ format: <span class="s">'A4'</span>, printBackground: <span class="k">true</span>,
+      displayHeaderFooter: <span class="k">true</span> });
+  <span class="k">await</span> browser.close();
+  res.type(<span class="s">'application/pdf'</span>).send(pdf);
+});
+</pre>
+
+<div class="callout">
+  <span class="t">دليل عملي يدعم التوصية:</span> هذا التقرير الذي تقرؤه الآن هو بالضبط الطريق المقترح — قالب HTML عربي RTL مع خط Cairo ثم تحويل خادمي عبر Chromium إلى PDF متجهي قابل للتحديد والبحث. أي أن أسلوب الإخراج المستهدف لمنصتك مجرَّب هنا على وثيقة بنفس لغتك واتجاهك.
+</div>
+
+<!-- ================= SECTION 08 ================= -->
+<div class="chapter-header">
+  <div class="sec-tag">SECTION 08</div>
+  <div class="sec-title">خارطة الطريق التنفيذية وتعزيز القيمة التعليمية</div>
+  
+</div>
+
+<h3 class="sub">خارطة زمنية بأربع مراحل ومخرجات قابلة للقياس</h3>
+<table>
+  <thead><tr><th style="width:17%">المرحلة</th><th style="width:20%">النطاق</th><th>مخرجات القبول المقترحة</th></tr></thead>
+  <tbody>
+    <tr><td><span class="pri pri-p0">P0 · أسبوع واحد</span></td><td>السريعات الأربعة</td><td>زر «اسأل المرشد» يفتح محادثة تحمل سياق التحدي؛ CTF-02 يُحل بالسلسلة الصحيحة من داخل المنصة؛ سقف الجسم 1MB؛ ErrorBoundary يعرض رسالة معزولة عند رمي خطأ متعمد؛ شارة SIMULATION ظاهرة</td></tr>
+    <tr><td><span class="pri pri-p1">P1 · أسبوعان</span></td><td>إعادة الهيكلة والتوحيد</td><td>شجرة server/* بلا ملف يتجاوز ~300 سطر؛ مسار واحد للذكاء الاصطناعي عبر الطبقة الموحدة (استيراد getAIClient = صفر)؛ اختبار بوابة يثبت رفض evil-lab.attacker.com وقبول 192.168.1.10؛ قاموس i18n يغطي 100% من النصوص</td></tr>
+    <tr><td><span class="pri pri-p2">P2 · 2-3 أسابيع</span></td><td>الاستمرارية والتقارير</td><td>StateStore/Prisma يبقي المشاريع والنتائج بعد إعادة التشغيل؛ تحقق خادمي للأعلام مع إخفائها من الحزمة؛ نقطة نهاية PDF متجهية تُخرج تقريرًا بغلاف وترويسة وترقيم ورسوم توزيع شدة</td></tr>
+    <tr><td><span class="pri pri-p3">P3 · شهر فأكثر</span></td><td>التعلم المتقدم</td><td>ملف متعلم بمسارات وXP وشارات يصمد عبر الجلسات؛ WebSocket يجعل سجلات التنسيق حية فعلًا؛ DockerExecutor يشغّل مختبر Juice Shop معزولًا ضمن نطاق مشروع مخصص</td></tr>
+  </tbody>
+</table>
+
+<h3 class="sub">أفكار تعزز دعم التعلم والتفاعل (هدفك المعلن)</h3>
+<ul class="flist">
+  <li><b><span class="n">E1</span>ملف المتعلم أولاً</b> — بمجرد وصول التخزين الدائم: مستوى لكل مجال (ويب/شبكات/تشفير/جنائي)، XP من التحديات والتقارير المنجزة، وشارات (أول SQLi مفسرة، تقرير مكتمل، استعادة خطأ…). التقدم المرئي هو أقوى محفز تعليمي موثق.</li>
+  <li><b><span class="n">E2</span>وضع «اشرح كأنني مبتدئ/خبير»</b> — حقل مستوى في دردشة الوكيل يوجّه systemInstruction الموجود أصلًا، فيغير عمق الشرح دون بنية جديدة — استثمار صغير بأثر تعليمي كبير.</li>
+  <li><b><span class="n">E3</span>تقرير تقدم للمتعلم</b> — منظومة التقارير نفسها تُعاد استخدامها لتوليد «تقرير تقدم شخصي» (تحديات محلولة بمرور الوقت، تغطية OWASP، نقاط ضعف مفاهيمية) — يتحول التقييم من أداة إخراج إلى مرآة تعلم.</li>
+  <li><b><span class="n">E4</span>مختبرات حقيقية آمنة</b> — تفعيل LAB_ENVIRONMENTS الميت مع docker-compose (Juice Shop/DVWA) داخل شبكة معزولة وهدف مسجل في مشروع مخصص: عندها تتحول بوابة النطاق من درس نظري إلى عائق يُلمس فعليًا عند محاولة تجاوز النطاق.</li>
+  <li><b><span class="n">E5</span>وضع امتحان مصغر</b> — 10 أسئلة عشوائية من قاعدة المعرفة + تحدي قصير، بتصحيح فوري وربط بنتائج ملف المتعلم — يكمل حلقة التعلم: تعلم ثم تمرين ثم قياس.</li>
+</ul>
+
+<h3 class="sub">خلاصة</h3>
+<p>CyberGuard AI مشروع ناضج التفكير أكثر من كونه ناضج الهيكلة — وهذا ترتيب صحي تمامًا لمشروع تعليمي في مرحلته. أساسه الأمني (تحقق، حدود معدل، حدود حقن، بوابة تفويض) جاهز للاعتماد، وطبقة المزودين الموحدة نموذج يُحتذى؛ والمطلوب هو استثمار مركّز في ثلاثة اتجاهات متتابعة: تقسيم يحفظ السلوك، ثم استمرارية تمنح المتعلم ذاكرة، ثم منظومة تقارير تُحوّل كل تمرين محاكى إلى مخرج مؤسسي قابل للعرض والتحرير. بترتيب الأولويات أعلاه، كل أسبوع عمل يضيف قيمة مستقلة دون أن يقفل الطريق لما بعده، ويبقى المشروع ما صُمم لأجله: بيئة تعلم آمنة تعلّم مفاهيم الأمن بممارسته في آن واحد.</p>
+
+<div class="card" style="border-color:var(--accent-dk); background:rgba(22,78,99,.10)">
+  <h4>قائمة تحقق سريعة قبل الانطلاق — تسلسل جلسات العمل المقترح</h4>
+  <ul class="check">
+    <li><b>جلسة 0:</b> إنشاء فرع <code>refactor/baseline</code> وتثبيت خط الأساس: <code>npm run test</code> و<code>npm run lint</code> أخضران قبل أي تعديل، مع إضافة ESLint (بما فيها noUnusedLocals) لالتقاط الكود الميت آليًا.</li>
+    <li><b>جلسة 1 (سريعات P0):</b> إصلاح <code>App.tsx:43</code> وسلسلة CTF-02 ثم التحقق اليدوي من أن التحدي يُحل من داخل المنصة، وإضافة ErrorBoundary وشارات SIMULATION وخفض سقف الجسم إلى 1MB.</li>
+    <li><b>جلسة 2-4:</b> نقل server.ts وحدة وحدة إلى الهيكلية المستهدفة، مع تشغيل الاختبارات بعد كل نقل وإبقائها خضراء — ثم حذف <code>getAIClient()</code> وتوصيل المنسق والتدقيق بـ <code>generateJSON</code>.</li>
+    <li><b>جلسة 5:</b> ترقية بوابة النطاق بـ ipaddr.js وإضافة اختبارين: رفض <code>evil-lab.attacker.com</code> وقبول <code>192.168.1.10</code> — درس تفويض حي وموثق بالاختبار.</li>
+    <li><b>جلسة 6-7:</b> قاموس <code>t(key)</code> واستكمال OWASP Top 10 وإصلاح الحقول العربية-فقط، ثم خطافات useCopy وseverity.ts وSegmentedTabs.</li>
+    <li><b>جلسة 8+</b> (بالتوازي ممكن): هيكلة <code>report/</code> مع قالب <code>report-ar.hbs</code> وأول PDF متجهي عبر Puppeteer من مخرجات مهمة حقيقية — أول مخرج ملموس لمنظومة التقارير.</li>
+  </ul>
+</div>
+</div>
+
+<!-- ================= ENDING ================= -->
+<div class="ending">
+  <div class="end-bg"></div>
+  <div class="end-content">
+    <div class="end-mark">END OF REVIEW · DOC-REV-2026-01</div>
+    <div class="end-title">بناءٌ على أساسٍ جيد،<br/>الخطوة القادمة هندسية لا مفاهيمية.</div>
+    
+    <p class="end-text">ابدأ بسريعات P0 في جلسة واحدة، ثم قسّم الخادم تدريجيًا مع إبقاء الاختبارات خضراء، وتعامل مع منظومة التقارير كخط إنتاج مستقل يبدأ من قالب Handlebars وينتهي بـ PDF متجهي عربي — وستجد أن كل تحسين معماري هنا يترجم مباشرة إلى قيمة تعليمية أوضح للمتعلم.</p>
+  </div>
+  <div class="end-foot">
+    <span>CYBERGUARD AI · ARCHITECTURE &amp; CODE REVIEW</span>
+    <span>AUGUST 2026 · V1.0</span>
+  </div>
+</div>
+
+</body>
+</html>
