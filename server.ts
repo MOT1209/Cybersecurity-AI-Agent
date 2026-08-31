@@ -503,10 +503,12 @@ export async function createApp() {
       events: errorRecoveryEventsStore,
       circuitBreakers,
       stats: {
-        totalRecovered: errorRecoveryEventsStore.filter((e) => e.status === "AUTO_RECOVERED" || e.status === "FALLBACK_SUCCESS").length,
-        fallbacksExecuted: errorRecoveryEventsStore.filter((e) => e.status === "FALLBACK_SUCCESS").length,
+        // Counts of what actually happened. There is no "success rate": nothing
+        // in this engine executes a retry, so there is no success to rate.
+        diagnosesRecorded: errorRecoveryEventsStore.length,
+        escalated: errorRecoveryEventsStore.filter((e) => e.status === "ESCALATED").length,
+        recoveryProposed: errorRecoveryEventsStore.filter((e) => e.status === "RECOVERY_PROPOSED").length,
         activeCircuitBreakers: Object.values(circuitBreakers).filter((cb) => cb.state !== "CLOSED").length,
-        successRatePercentage: 98.4,
       },
     });
   });
@@ -847,6 +849,12 @@ ${code}
   });
 
   // Retain Terminal Simulation endpoint
+  /**
+   * Command explainer. This endpoint previously returned a hardcoded nmap
+   * report — invented ports, invented versions — for ANY target, which is
+   * indistinguishable from a real scan to the caller. It no longer pretends:
+   * it explains what a command would do and points at the real execution path.
+   */
   app.post("/api/gemini/simulate-cmd", (req, res) => {
     const cmdCheck = validateStringField(req.body?.command, "command", 500, true);
     if (!cmdCheck.valid) {
@@ -857,34 +865,39 @@ ${code}
       return res.status(400).json({ error: "VALIDATION_ERROR", message: targetCheck.error });
     }
 
-    const { command = "nmap 192.168.1.50", target = "192.168.1.50" } = req.body;
-    const cmd = command.toLowerCase().trim();
-
-    if (cmd.startsWith("nmap")) {
-      return res.json({
-        output: `Starting Nmap 7.94 ( https://nmap.org ) at ${new Date().toISOString().slice(0, 10)} 14:22 UTC
-Nmap scan report for ${target.split(" ")[0]} (192.168.1.50)
-Host is up (0.00038s latency).
-PORT     STATE SERVICE     VERSION
-21/tcp   open  ftp         vsftpd 3.0.3 (Anonymous login allowed)
-22/tcp   open  ssh         OpenSSH 8.9p1 Ubuntu
-80/tcp   open  http        Apache httpd 2.4.52
-443/tcp  open  ssl/https   Apache httpd 2.4.52
-3306/tcp open  mysql       MySQL 8.0.35
-8080/tcp open  http-proxy  Werkzeug/2.2.2 Python/3.10.12 (Flask API)
-
-Nmap done: 1 IP address scanned in 1.84 seconds`,
-        explanation: "تم الكشف عن 6 منافذ مفتوحة، منها منفذ FTP يقبل الدخول المجهول ومنفذ Flask API على 8080.",
-        findings: ["منفذ 21: Anonymous FTP", "منفذ 8080: Flask API Debug", "منفذ 3306: MySQL DB Service"],
-        suggestedNextCommands: [`curl -I http://${target.split(" ")[0]}:8080/api/v1/health`, `nikto -h http://${target.split(" ")[0]}`],
-      });
-    }
+    const { command, target = "192.168.1.50" } = req.body;
+    const toolId = String(command).trim().split(/\s+/)[0].toLowerCase();
+    const known = getToolDescriptor(toolId);
 
     return res.json({
-      output: `[cyberguard@isolated-sandbox ~]$ ${command}\n[+] Command executed within isolated container.\n[+] Process finished with exit code 0.`,
-      explanation: `تم تنفيذ الأمر \`${command}\` بنجاح داخل الـ Sandbox المخصص.`,
-      findings: ["تم التحقق من سلامة التنفيذ وخلوه من المخاطر."],
-      suggestedNextCommands: [`nmap -sV ${target.split(" ")[0]}`, `ss -tulnp`],
+      executed: false,
+      notice:
+        "NOT EXECUTED. This endpoint explains a command; it does not run one and " +
+        "returns no scan results. Use POST /api/tools/execute for a real, " +
+        "gateway-checked, sandboxed run.",
+      command,
+      target,
+      tool: known
+        ? {
+            id: known.id,
+            name: known.name,
+            riskLevel: known.riskLevel,
+            capabilities: known.capabilities,
+            sandboxRequired: known.sandboxRequired,
+            implemented: !!getToolAdapter(known.id),
+          }
+        : null,
+      explanation: known
+        ? `"${toolId}" is a registered ${known.riskLevel}-risk tool: ${known.description}`
+        : `"${toolId}" is not a registered tool on this platform, so it cannot be run here.`,
+      howToRunForReal: {
+        method: "POST",
+        path: "/api/tools/execute",
+        body: { toolId, target, params: {} },
+        note: known?.riskLevel === "HIGH" || known?.riskLevel === "CRITICAL"
+          ? "This tool requires a human approval token; see /api/approvals."
+          : "No approval required at this risk level.",
+      },
     });
   });
 

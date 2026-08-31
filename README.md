@@ -122,6 +122,13 @@ The platform will not report a success that did not happen.
   prefixed `SIMULATED — NOT A REAL RESULT`.
 - Orchestrator steps for which no agent/tool exists are returned as `PENDING`,
   not `COMPLETED`.
+- The error-recovery engine **classifies** a failure and **recommends** a
+  strategy. It does not retry, so it reports `RECOVERY_PROPOSED` with
+  `recoveryExecuted: false` — never `AUTO_RECOVERED`. Recovery history starts
+  empty; it no longer ships with fabricated incidents.
+- `/api/gemini/simulate-cmd` explains a command and returns `executed: false`.
+  It previously returned a hardcoded nmap report — invented ports and versions —
+  for any target.
 - Template and model-generated findings carry `hypothetical: true` with
   `retestStatus: "UNVERIFIED"` and confidence `0`. Only findings produced by a
   real tool run are presented as observed.

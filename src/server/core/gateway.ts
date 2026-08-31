@@ -323,17 +323,22 @@ export function diagnoseAndRecoverError(params: {
     proposedFixAr: proposedFixAr,
     proposedFixEn: proposedFixEn,
     alternativeTool: alternativeTool,
-    status: cb.state === "OPEN" ? "ESCALATED" : (strategy === "FALLBACK_TOOL" ? "FALLBACK_SUCCESS" : "AUTO_RECOVERED"),
+    // A diagnosis is a PROPOSAL, not an outcome. Nothing has been retried here:
+    // this function classifies a failure and recommends a strategy. Reporting
+    // "AUTO_RECOVERED" for a retry that never ran was a fabricated result.
+    status: cb.state === "OPEN" ? "ESCALATED" : "RECOVERY_PROPOSED",
+    recoveryExecuted: false,
     executionLog: [
-      `[00:00.000] Tool "${toolName}" dispatched against target "${target}"`,
-      `[00:01.200] Detected raw failure: ${rawError.substring(0, 70)}...`,
-      `[00:01.210] Diagnostic Engine: Classified error as [${classification}]`,
-      `[00:01.220] Circuit Breaker state: [${cb.state}] (Consecutive: ${cb.consecutiveFailures})`,
-      `[00:01.230] Recovery strategy selected: [${strategy}]`,
-      `[00:01.240] Safe Retry countdown initiated with backoff delay: ${backoffDelayMs}ms`,
-      `[00:0${(1.24 + backoffDelayMs / 1000).toFixed(3)}] Executing safe remedial action: ${proposedFixEn.substring(0, 60)}...`,
-      `[00:0${(1.24 + backoffDelayMs / 1000 + 0.8).toFixed(3)}] Safe retry verified: Result returned successfully with 0 system faults.`
-    ]
+      `Tool "${toolName}" reported a failure against target "${target}".`,
+      `Observed error: ${rawError.substring(0, 120)}`,
+      `Diagnostic engine classified it as [${classification}].`,
+      `Circuit breaker for "${toolName}" is now [${cb.state}] after ${cb.consecutiveFailures} consecutive failure(s).`,
+      `Recommended strategy: [${strategy}] with a ${backoffDelayMs}ms backoff.`,
+      alternativeTool
+        ? `Suggested alternative: ${alternativeTool}`
+        : "No alternative tool suggested.",
+      "NOTE: no retry has been executed. Re-issue the tool request to act on this recommendation.",
+    ],
   };
 
   errorRecoveryEventsStore.unshift(event);
@@ -344,7 +349,7 @@ export function diagnoseAndRecoverError(params: {
     `RECOVER_${toolName.toUpperCase()}`,
     target,
     event.status,
-    `Error classified as ${classification}. Strategy: ${strategy}. Resolution: ${event.status}`,
+    `Error classified as ${classification}. Recommended strategy: ${strategy}. No retry was executed.`,
   );
 
   return event;
