@@ -7,6 +7,11 @@ beforeAll(() => {
   process.env.AI_PROVIDER = "local";
   delete process.env.APP_ACCESS_KEY;
   delete process.env.ENABLE_CRITICAL_TOOLS;
+  // Two distinct identities: a scanner that may run tools but may not approve,
+  // and a human operator holding the approver role.
+  process.env.API_PRINCIPALS =
+    "scanner-bot:operator:scanner-secret,human-operator:operator|approver:human-secret";
+  resetPrincipals();
 });
 
 import { createApp } from "../server";
@@ -19,6 +24,7 @@ import {
   resetApprovals,
 } from "../src/server/security/approvals";
 import { validateSecurityGateway } from "../src/server/core/gateway";
+import { resetPrincipals } from "../src/server/security/principal";
 
 const base = {
   task: "Active web scan",
@@ -110,23 +116,28 @@ describe("approval enforcement end to end", () => {
     );
   });
 
-  it("428 opens a real approval request the operator can act on", async () => {
+  it("428 opens a real approval request a separate human can act on", async () => {
     const app = await createApp();
     const blocked = await request(app)
       .post("/api/tools/execute")
+      .set("x-api-key", "scanner-secret")
       .send({ toolId: "zap", target: "192.168.1.50" })
       .expect(428);
     expect(blocked.body.approvalId).toMatch(/^apr_/);
+    expect(blocked.body.approval.requestedBy).toBe("scanner-bot");
     expect(blocked.body.approval.token).toBeUndefined();
 
     const decided = await request(app)
       .post(`/api/approvals/${blocked.body.approvalId}/decision`)
-      .send({ decision: "APPROVED", decidedBy: "human-operator" })
+      .set("x-api-key", "human-secret")
+      .send({ decision: "APPROVED" })
       .expect(200);
     expect(decided.body.approvalToken).toMatch(/^[0-9a-f]{64}$/);
+    expect(decided.body.approval.decidedBy).toBe("human-operator");
 
     const run = await request(app)
       .post("/api/tools/execute")
+      .set("x-api-key", "scanner-secret")
       .send({ toolId: "zap", target: "192.168.1.50", approvalToken: decided.body.approvalToken })
       .expect(200);
     expect(run.body.status).toBe("SUCCESS");
@@ -134,19 +145,54 @@ describe("approval enforcement end to end", () => {
     // The token is single-use: replaying it fails.
     await request(app)
       .post("/api/tools/execute")
+      .set("x-api-key", "scanner-secret")
       .send({ toolId: "zap", target: "192.168.1.50", approvalToken: decided.body.approvalToken })
       .expect(428);
   });
 
-  it("the API refuses a self-approval with 409", async () => {
+  it("refuses a self-approval with 409 even when the caller holds approver", async () => {
     const app = await createApp();
     const blocked = await request(app)
       .post("/api/tools/execute")
+      .set("x-api-key", "human-secret")
       .send({ toolId: "zap", target: "192.168.1.50" })
       .expect(428);
+    // Same identity requested it, so it cannot decide it.
     await request(app)
       .post(`/api/approvals/${blocked.body.approvalId}/decision`)
-      .send({ decision: "APPROVED", decidedBy: "api-client" })
+      .set("x-api-key", "human-secret")
+      .send({ decision: "APPROVED" })
+      .expect(409);
+  });
+
+  it("refuses a decision from a principal without the approver role", async () => {
+    const app = await createApp();
+    const blocked = await request(app)
+      .post("/api/tools/execute")
+      .set("x-api-key", "scanner-secret")
+      .send({ toolId: "zap", target: "192.168.1.50" })
+      .expect(428);
+    const res = await request(app)
+      .post(`/api/approvals/${blocked.body.approvalId}/decision`)
+      .set("x-api-key", "scanner-secret")
+      .send({ decision: "APPROVED" })
+      .expect(403);
+    expect(res.body.error).toBe("FORBIDDEN");
+  });
+
+  it("cannot name someone else as the decider through the request body", async () => {
+    const app = await createApp();
+    const blocked = await request(app)
+      .post("/api/tools/execute")
+      .set("x-api-key", "human-secret")
+      .send({ toolId: "zap", target: "192.168.1.50" })
+      .expect(428);
+    // decidedBy in the body is ignored; the authenticated identity is used, so
+    // this is still a self-approval and is refused.
+    await request(app)
+      .post(`/api/approvals/${blocked.body.approvalId}/decision`)
+      .set("x-api-key", "human-secret")
+      .send({ decision: "APPROVED", decidedBy: "someone-else" })
       .expect(409);
   });
 });

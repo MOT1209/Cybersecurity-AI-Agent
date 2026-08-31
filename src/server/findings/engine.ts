@@ -13,6 +13,7 @@
 
 import crypto from "crypto";
 import { emitEvent } from "../core/events";
+import { getDatabase } from "../database/index";
 import type { Evidence, Finding, Severity, Validation } from "./types";
 import type { NucleiDetection } from "../tools/nuclei";
 import type { SemgrepFinding } from "../tools/semgrep";
@@ -145,7 +146,14 @@ export function fromTrivyFindings(results: TrivyFinding[], ctx: FindingContext):
   }));
 }
 
-/** Persist findings and announce them. Returns what was stored. */
+/**
+ * Persist findings and announce them.
+ *
+ * The write-through to the configured backend is intentionally not awaited: a
+ * slow database must not stall a scan. It is also not swallowed — a failed
+ * write is surfaced, because silently losing a finding is exactly the failure
+ * mode this platform refuses elsewhere.
+ */
 export function recordFindings(newFindings: Finding[]): Finding[] {
   for (const f of newFindings) {
     findings.unshift(f);
@@ -159,6 +167,16 @@ export function recordFindings(newFindings: Finding[]): Finding[] {
     });
   }
   while (findings.length > 500) findings.pop();
+
+  void getDatabase()
+    .findings.insertMany(newFindings)
+    .catch((err: Error) => {
+      console.error(
+        `[findings] Failed to persist ${newFindings.length} finding(s): ${err.message}. ` +
+          "They remain in memory only and will be lost on restart.",
+      );
+    });
+
   return newFindings;
 }
 
@@ -190,6 +208,12 @@ export function applyValidation(id: string, validation: Validation): Finding | u
   if (!f) return undefined;
   f.validation = validation;
   f.updatedAt = new Date().toISOString();
+  void getDatabase()
+    .findings.updateValidation(id, validation)
+    .catch((err: Error) => {
+      console.error(`[findings] Failed to persist validation for ${id}: ${err.message}`);
+    });
+
   emitEvent("FINDING_VALIDATED", {
     traceId: f.traceId,
     projectId: f.projectId,

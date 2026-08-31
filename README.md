@@ -219,6 +219,47 @@ The gateway also enforces the project's `allowedTools` list, which V1 declared
 but never checked, and returns an ordered `checks[]` record of every decision it
 made.
 
-> ⚠️ **State is in-memory.** Projects, audit logs and circuit breakers reset on
-> every restart and are not shared across instances. Do not run more than one
-> replica until a persistent store is added.
+---
+
+## 🗄️ Persistence, identity and the audit chain
+
+### Backends
+| `DATABASE_URL` | Behavior |
+|---|---|
+| unset | in-memory backend; `/api/database/status` reports `persistent: false` and says data is lost on restart |
+| set and reachable | Postgres; migrations run at startup |
+| set and **unreachable** | **startup fails** — it will not quietly downgrade to memory and lose findings and audit records |
+
+Findings and audit entries are written through to the configured backend. The
+write is not awaited (a slow database must not stall a scan) but a failure is
+logged loudly rather than swallowed.
+
+### Migrations
+`src/server/database/migrations/*.sql`, applied in lexical order inside a
+transaction and recorded in `schema_migrations` with a checksum. Editing a
+migration that has already been applied is a hard error — add a new one instead.
+The schema enforces security invariants at the database level too: a finding
+cannot be `CONFIRMED` without a validator, and an approval cannot be decided by
+its own requester.
+
+### Identities and roles
+`API_PRINCIPALS` maps each API key to an identity and a role set
+(`admin | operator | approver | viewer`; `admin` implies all), compared in
+constant time against a stored sha256.
+
+**Approving a high-risk tool requires the `approver` role, and the decider is
+the authenticated principal — not a name supplied in the request body.** The
+legacy shared `APP_ACCESS_KEY` grants `operator`/`viewer` but deliberately
+**not** `approver`: a key everyone holds is not a person, so it cannot satisfy a
+human-approval requirement.
+
+### Tamper-evident audit log
+Each audit entry commits to its predecessor's hash. `verifyAuditChain()`
+recomputes the chain and reports the first broken link, so a quietly edited or
+deleted record is detectable. This is tamper-**evidence**, not tamper-proofing:
+someone with write access to the entire store could recompute the chain. It
+raises the cost of a silent edit from trivial to total.
+
+> ⚠️ **Without `DATABASE_URL`, state is in-memory.** Projects, circuit breakers
+> and recovery history reset on every restart and are not shared across
+> instances. Do not run more than one replica until Postgres is configured.

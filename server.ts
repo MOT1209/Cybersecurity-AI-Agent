@@ -22,6 +22,15 @@ import { ToolNotAvailableError, ToolNotRegisteredError } from "./src/server/core
 import { listTools, getToolAdapter, getToolDescriptor } from "./src/server/tools/registry";
 import { resolveWorkspacePath } from "./src/server/security/workspace";
 import { listFindings, getFinding } from "./src/server/findings/engine";
+import { initDatabase, databaseStatus } from "./src/server/database/index";
+import {
+  resolvePrincipal,
+  principalsConfigured,
+  hasRole,
+  SHARED_KEY_PRINCIPAL,
+  ANONYMOUS_PRINCIPAL,
+} from "./src/server/security/principal";
+import type { Principal } from "./src/server/security/principal";
 import { checkAllToolHealth, checkToolHealth } from "./src/server/tools/health";
 import { agentManager } from "./src/server/agents/index";
 import { listEvents } from "./src/server/core/events";
@@ -147,24 +156,52 @@ export async function createApp() {
     return crypto.timingSafeEqual(a, b);
   };
 
-  // API Key Authentication Middleware: protects /api/* except /api/health
+  /**
+   * Authentication. Resolves the caller to a Principal so authorization can be
+   * about identity and roles rather than mere possession of the shared key.
+   *
+   * Precedence:
+   *   1. API_PRINCIPALS — per-key identities with roles (preferred).
+   *   2. APP_ACCESS_KEY — legacy shared key. Grants operator/viewer but NOT
+   *      approver: a key everyone shares is not a person, so it must not be
+   *      able to satisfy a human-approval requirement.
+   *   3. Neither configured — open local development.
+   */
   const apiKeyAuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
     if (req.path === "/health" || req.path === "/api/health") {
       return next();
     }
-    const expectedKey = process.env.APP_ACCESS_KEY;
-    if (!expectedKey) {
+    const providedKey = req.header("x-api-key");
+
+    if (principalsConfigured()) {
+      const principal = resolvePrincipal(providedKey);
+      if (!principal) {
+        return res.status(401).json({
+          error: "UNAUTHORIZED",
+          message: "Invalid or missing API key in 'x-api-key' header.",
+        });
+      }
+      (req as Request & { principal?: Principal }).principal = principal;
       return next();
     }
-    const providedKey = req.header("x-api-key");
+
+    const expectedKey = process.env.APP_ACCESS_KEY;
+    if (!expectedKey) {
+      (req as Request & { principal?: Principal }).principal = ANONYMOUS_PRINCIPAL;
+      return next();
+    }
     if (!providedKey || !safeKeyEqual(providedKey, expectedKey)) {
       return res.status(401).json({
         error: "UNAUTHORIZED",
         message: "Invalid or missing API key in 'x-api-key' header.",
       });
     }
+    (req as Request & { principal?: Principal }).principal = SHARED_KEY_PRINCIPAL;
     next();
   };
+
+  const principalOf = (req: Request): Principal =>
+    (req as Request & { principal?: Principal }).principal ?? ANONYMOUS_PRINCIPAL;
 
   // Mount Global Limiters and Auth for /api
   app.use("/api", globalApiLimiter);
@@ -183,6 +220,15 @@ export async function createApp() {
       platform: "CYBERGUARD AI",
       timestamp: new Date().toISOString(),
     });
+  });
+
+  /**
+   * Persistence posture. Authenticated, because "we are running in memory and
+   * lose everything on restart" is operational detail, not public information.
+   * Never includes the connection string.
+   */
+  app.get("/api/database/status", async (_req, res) => {
+    res.json(await databaseStatus());
   });
 
   // Projects API
@@ -336,23 +382,33 @@ export async function createApp() {
     if (!idCheck.valid) {
       return res.status(400).json({ error: "VALIDATION_ERROR", message: idCheck.error });
     }
-    const byCheck = validateStringField(req.body?.decidedBy, "decidedBy", 200, true);
-    if (!byCheck.valid) {
-      return res.status(400).json({ error: "VALIDATION_ERROR", message: byCheck.error });
-    }
     const decision = req.body?.decision;
     if (decision !== "APPROVED" && decision !== "REJECTED") {
       return res.status(400).json({ error: "VALIDATION_ERROR", message: "Field 'decision' must be APPROVED or REJECTED." });
     }
 
-    const result = decideApproval(req.params.id, decision, req.body.decidedBy);
+    // Authorization, not just authentication: approving is a privileged act.
+    const principal = principalOf(req);
+    if (!hasRole(principal, "approver")) {
+      return res.status(403).json({
+        error: "FORBIDDEN",
+        message:
+          `Principal "${principal.id}" does not hold the "approver" role. ` +
+          "Configure per-key identities via API_PRINCIPALS; the shared APP_ACCESS_KEY " +
+          "deliberately cannot approve, because a shared key is not a person.",
+      });
+    }
+
+    // The decider is the authenticated identity. Accepting it from the body
+    // would let a caller name someone else and defeat the self-approval rule.
+    const result = decideApproval(req.params.id, decision, principal.id);
     if (!result.ok) {
       return res.status(409).json({ error: "APPROVAL_CONFLICT", message: result.error });
     }
     return res.json({
       approval: { ...result.approval, token: undefined },
       // Present exactly once. Redeeming it burns it.
-      approvalToken: result.approval.token,
+      approvalToken: result.approval!.token,
     });
   });
 
@@ -473,7 +529,7 @@ export async function createApp() {
           riskLevel: err.decision.riskLevel,
           expectedImpact: `Runs the "${toolId}" security tool inside the sandbox against ${target}.`,
           projectId,
-          requestedBy: "api-client",
+          requestedBy: principalOf(req).id,
         });
         return res.status(428).json({
           error: "APPROVAL_REQUIRED",
@@ -985,6 +1041,21 @@ ${findings.map((f: any, i: number) => `| ${i + 1} | **${f.title}** | \`${f.sever
 
 async function startServer() {
   const PORT = Number(process.env.PORT) || 7799;
+
+  // Resolve persistence BEFORE serving. When DATABASE_URL is set, an
+  // unreachable server aborts startup rather than quietly running in memory
+  // and losing every finding and audit record on restart.
+  const db = await initDatabase();
+  if (db.kind === "memory") {
+    console.warn(
+      "[persistence] Running IN MEMORY: findings, agent runs and audit records " +
+        "are lost on restart and are not shared across replicas. Set DATABASE_URL " +
+        "for a persistent backend.",
+    );
+  } else {
+    console.log("[persistence] Postgres backend connected and migrated.");
+  }
+
   const app = await createApp();
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`CYBERGUARD AI Platform Server active on http://0.0.0.0:${PORT}`);
