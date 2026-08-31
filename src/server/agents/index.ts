@@ -13,6 +13,9 @@ import { reconAgent } from "./recon/agent";
 import { webAgent } from "./web/agent";
 import { codeAgent } from "./code/agent";
 import { validationAgent } from "./validation/agent";
+import { remediationAgent } from "./remediation/agent";
+import { reportingAgent } from "./reporting/agent";
+import { testingAgent } from "./testing/agent";
 
 export * from "./base";
 export * from "./types";
@@ -21,8 +24,14 @@ export * from "./recon/agent";
 export * from "./web/agent";
 export * from "./code/agent";
 export * from "./validation/agent";
+export * from "./remediation/agent";
+export * from "./reporting/agent";
+export * from "./testing/agent";
 
 agentManager.register(reconAgent);
 agentManager.register(webAgent);
 agentManager.register(codeAgent);
 agentManager.register(validationAgent);
+agentManager.register(remediationAgent);
+agentManager.register(reportingAgent);
+agentManager.register(testingAgent);

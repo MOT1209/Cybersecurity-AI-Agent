@@ -14,6 +14,9 @@ import { agentManager } from "../agents/index";
 import type { ReconData } from "../agents/recon/agent";
 import type { WebData } from "../agents/web/agent";
 import type { ValidationData } from "../agents/validation/agent";
+import type { RemediationData } from "../agents/remediation/agent";
+import type { ReportingData, CoverageNote } from "../agents/reporting/agent";
+import type { TestingData } from "../agents/testing/agent";
 import {
   fromNmapPorts,
   fromNucleiDetections,
@@ -217,6 +220,105 @@ export async function runMission(input: MissionInput) {
     };
   }
 
+  // --- Remediation: guidance only, and conditional for unconfirmed findings ---
+  let remediation: RemediationData | null = null;
+  if (realFindings.length) {
+    try {
+      const res = await agentManager.dispatch<RemediationData>(
+        "remediation",
+        { findingIds: realFindings.map((f) => f.id), projectId, traceId },
+        { projectId, traceId },
+      );
+      remediation = res.data;
+    } catch {
+      remediation = null;
+    }
+  }
+
+  const remediationStepIdx = plan.steps.findIndex((st: any) => st.agent === "remediation");
+  if (remediationStepIdx >= 0 && remediation) {
+    plan.steps[remediationStepIdx] = {
+      ...plan.steps[remediationStepIdx],
+      toolName: "guidance synthesis (no changes applied)",
+      status: "COMPLETED",
+      real: true,
+      inputSummary: `Produced guidance for ${remediation.entries.length} finding(s)`,
+      outputSummary: `${remediation.confirmedCount} actionable, ${remediation.conditionalCount} conditional (finding not confirmed)`,
+      detailedLog: "[Remediation Agent] Guidance attached to findings. Nothing was applied to any system.",
+    };
+  }
+
+  // --- Testing: probe the platform's own controls, every run ---
+  let controls: TestingData | null = null;
+  try {
+    const res = await agentManager.dispatch<TestingData>(
+      "testing",
+      { projectId },
+      { projectId, traceId },
+    );
+    controls = res.data;
+  } catch {
+    controls = null;
+  }
+
+  const testingStepIdx = plan.steps.findIndex((st: any) => st.agent === "testing");
+  if (testingStepIdx >= 0 && controls) {
+    plan.steps[testingStepIdx] = {
+      ...plan.steps[testingStepIdx],
+      toolName: "control probes (refusal assertions)",
+      status: controls.allControlsHeld ? "COMPLETED" : "FAILED",
+      real: true,
+      inputSummary: `Probed ${controls.probes.length} security control(s)`,
+      outputSummary: `${controls.held} held, ${controls.breached} breached, ${controls.inconclusive} inconclusive`,
+      detailedLog: `[Testing Agent] ${controls.breached === 0 ? "All probed controls held." : "CONTROL BREACH DETECTED."}`,
+    };
+  }
+
+  // --- Coverage: what actually ran, and what did not, with the reason ---
+  const coverage: CoverageNote[] = [
+    { area: "Network reconnaissance", performed: true, detail: `nmap via ${sandboxMode} sandbox` },
+    {
+      area: "Web application scanning",
+      performed: web !== null,
+      detail: web
+        ? "nuclei against the discovered HTTP service"
+        : `Not performed: ${webError ?? "recon observed no open HTTP service"}`,
+    },
+    { area: "Source code analysis (SAST)", performed: false, detail: "Not performed: no workspace path was supplied for this mission." },
+    { area: "Dependency and secret scanning", performed: false, detail: "Not performed: no workspace path was supplied for this mission." },
+    {
+      area: "Finding validation",
+      performed: validation !== null,
+      detail: validation ? `${validation.confirmed} confirmed of ${validation.verdicts.length} reviewed` : "Not performed.",
+    },
+  ];
+
+  // --- Reporting: assembled from real findings only ---
+  let report: ReportingData | null = null;
+  try {
+    const res = await agentManager.dispatch<ReportingData>(
+      "reporting",
+      { projectId, traceId, target, coverage, language },
+      { projectId, traceId },
+    );
+    report = res.data;
+  } catch {
+    report = null;
+  }
+
+  const reportingStepIdx = plan.steps.findIndex((st: any) => st.agent === "reporting");
+  if (reportingStepIdx >= 0 && report) {
+    plan.steps[reportingStepIdx] = {
+      ...plan.steps[reportingStepIdx],
+      toolName: "report assembly",
+      status: "COMPLETED",
+      real: true,
+      inputSummary: "Assembled the assessment report from recorded findings",
+      outputSummary: `${report.confirmedCount} confirmed and ${report.unconfirmedCount} unconfirmed, in separate sections`,
+      detailedLog: "[Reporting Agent] Confirmed findings and unconfirmed detections are never merged.",
+    };
+  }
+
   const storedFindings = listFindings({ traceId });
 
   const usedModel = !synth.fallback;
@@ -231,6 +333,10 @@ export async function runMission(input: MissionInput) {
     // Real, engine-tracked findings carrying their true verification status.
     findings: storedFindings,
     validation,
+    remediation,
+    controls,
+    coverage,
+    reportMarkdown: report?.reportMarkdown ?? null,
     // Legacy key the SPA reads. Real findings first, hypotheses after.
     generatedFindings: [
       ...storedFindings,
@@ -258,6 +364,10 @@ export async function runMission(input: MissionInput) {
       webReal: web !== null,
       findingsRecorded: storedFindings.length,
       findingsConfirmed: validation?.confirmed ?? 0,
+      remediationReal: remediation !== null,
+      reportReal: report !== null,
+      controlsProbed: controls?.probes.length ?? 0,
+      controlsBreached: controls?.breached ?? 0,
       webSkippedReason: web ? undefined : (webError ?? "recon observed no open HTTP service"),
       sandboxMode,
       llmProvider: synth.provider,

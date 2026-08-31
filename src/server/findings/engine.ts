@@ -224,6 +224,27 @@ export function applyValidation(id: string, validation: Validation): Finding | u
   return f;
 }
 
+/**
+ * Attach remediation guidance to a finding.
+ *
+ * Kept separate from applyValidation so remediation can never change a
+ * finding's verification status — advice must not be able to promote a
+ * detection into a confirmed vulnerability.
+ */
+export function attachRemediation(id: string, remediation: Finding["remediation"]): Finding | undefined {
+  const f = findings.find((x) => x.id === id);
+  if (!f) return undefined;
+  f.remediation = remediation;
+  f.updatedAt = new Date().toISOString();
+  emitEvent("REMEDIATION_CREATED", {
+    traceId: f.traceId,
+    projectId: f.projectId,
+    target: f.target,
+    detail: `${f.id} → remediation attached (status unchanged: ${f.validation.status})`,
+  });
+  return f;
+}
+
 /** Test helper. */
 export function resetFindings(): void {
   findings.length = 0;

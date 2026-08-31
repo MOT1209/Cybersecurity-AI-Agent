@@ -67,7 +67,7 @@ describe("contracts the UI pages depend on", () => {
     const res = await request(app).get("/api/agents").expect(200);
     const ids = res.body.agents.map((a: { id: string }) => a.id).sort();
     // The UI catalog lists twelve; only these are actually executable.
-    expect(ids).toEqual(["code_security", "recon", "validation", "web_security"]);
+    expect(ids).toEqual(["code_security", "recon", "remediation", "reporting", "testing", "validation", "web_security"]);
     for (const a of res.body.agents) {
       expect(Array.isArray(a.allowedTools)).toBe(true);
       expect(Array.isArray(a.capabilities)).toBe(true);
