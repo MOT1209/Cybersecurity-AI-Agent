@@ -99,6 +99,8 @@ export const nmapDescriptor: ToolDescriptor = {
   resourceLimits: DEFAULT_RESOURCE_LIMITS,
   sandboxRequired: true,
   needsNetwork: true,
+  targetKind: "network",
+  filesystemAccess: "none",
   get image() {
     return nmapImage();
   },

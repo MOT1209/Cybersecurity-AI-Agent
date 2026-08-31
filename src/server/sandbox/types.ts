@@ -25,6 +25,8 @@ export interface ToolRunRequest {
   resourceLimits?: { cpus: number; memoryMb: number; pids: number };
   /** False for offline tools, which are run with no network at all. */
   needsNetwork?: boolean;
+  /** Host path to bind read-only at /workspace. Already containment-checked. */
+  workspaceHostPath?: string;
 }
 
 export interface SandboxInfo {

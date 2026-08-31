@@ -161,6 +161,8 @@ export const nucleiDescriptor: ToolDescriptor = {
   resourceLimits: { ...DEFAULT_RESOURCE_LIMITS, memoryMb: 1024 },
   sandboxRequired: true,
   needsNetwork: true,
+  targetKind: "network",
+  filesystemAccess: "none",
   get image() {
     return nucleiImage();
   },

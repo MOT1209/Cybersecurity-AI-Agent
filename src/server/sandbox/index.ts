@@ -102,6 +102,8 @@ export interface ExecuteToolParams {
   timeoutMs?: number;
   params?: Record<string, unknown>;
   projectId?: string;
+  /** Host path to bind read-only, for filesystem-scoped tools. */
+  workspaceHostPath?: string;
   actor?: string;
   /**
    * Single-use approval token minted by the approval system after a human
@@ -198,7 +200,15 @@ export async function executeTool(p: ExecuteToolParams): Promise<ToolRunResult> 
     params: p.params,
     resourceLimits: descriptor?.resourceLimits,
     needsNetwork: descriptor?.needsNetwork ?? true,
+    workspaceHostPath:
+      descriptor?.filesystemAccess === "workspace-ro" ? p.workspaceHostPath : undefined,
   };
+  if (descriptor?.filesystemAccess === "workspace-ro" && !req.workspaceHostPath) {
+    throw new ToolNotAvailableError(
+      p.toolId,
+      "it is a filesystem-scoped tool but no contained workspace path was resolved for it",
+    );
+  }
   if (executor.id === "docker" && !req.image) {
     throw new ToolNotAvailableError(
       p.toolId,

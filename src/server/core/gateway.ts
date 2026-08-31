@@ -77,6 +77,52 @@ export function validateSecurityGateway(
     };
   };
 
+  // 1a. Filesystem-scoped tools do not have a network target. Host allow/deny
+  //     lists are meaningless for them; containment is enforced separately by
+  //     the workspace resolver before the run is built.
+  if (descriptor?.targetKind === "filesystem") {
+    checks.push({
+      name: "target-kind",
+      passed: true,
+      detail: "Filesystem-scoped tool: containment is enforced by the workspace resolver.",
+    });
+    const allowed = (project.allowedTools ?? []).map((t) => t.toLowerCase());
+    if (allowed.length && !allowed.includes(toolName.toLowerCase())) {
+      return deny(
+        "project-tool-permission",
+        `Tool "${toolName}" is not permitted for project ${project.id}`,
+        `SECURITY GATEWAY ENFORCEMENT: Tool "${toolName}" is not in the allowed tool list for project "${project.id}".`,
+        "IN_SCOPE",
+      );
+    }
+    checks.push({ name: "project-tool-permission", passed: true, detail: `Tool "${toolName}" is permitted for this project.` });
+    const fsPolicy = policyFor(riskLevel);
+    if (fsPolicy.disabledByDefault && !isCriticalToolEnabled(toolName)) {
+      return deny(
+        "risk-policy",
+        `${riskLevel}-risk tool "${toolName}" is disabled by default`,
+        `SECURITY GATEWAY ENFORCEMENT: Tool "${toolName}" is classified ${riskLevel} and is disabled by default.`,
+        "IN_SCOPE",
+      );
+    }
+    checks.push({ name: "risk-policy", passed: true, detail: `Risk ${riskLevel} permitted under the active policy.` });
+    checks.push({
+      name: "approval-requirement",
+      passed: true,
+      detail: fsPolicy.requiresApproval ? "Explicit human approval is required." : "No approval required at this risk level.",
+    });
+    addAuditLog("SecurityGateway", `EXECUTE_${toolName.toUpperCase()}`, target, "ALLOWED", `Filesystem-scoped tool permitted (risk=${riskLevel}).`);
+    return {
+      isAllowed: true,
+      reason: `Filesystem-scoped tool "${toolName}" permitted; workspace containment applies.`,
+      riskLevel,
+      humanApprovalRequired: fsPolicy.requiresApproval,
+      scopeValidation: "IN_SCOPE",
+      checks,
+      sandboxRequired,
+    };
+  }
+
   // 1. Explicit deny-list first: a denied host is rejected even when it would
   //    otherwise qualify as a private/lab address.
   if (matchesAnyScope(host, project.outOfScope)) {

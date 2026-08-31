@@ -48,6 +48,14 @@ export interface ToolDescriptor {
    * scanning). Those run with no network interface at all.
    */
   needsNetwork: boolean;
+  /**
+   * What the tool's `target` denotes. "network" targets are scope-checked
+   * against the project allowlist; "filesystem" targets are containment-checked
+   * against the workspace root instead.
+   */
+  targetKind: "network" | "filesystem";
+  /** Read-only workspace bind mount. Only "workspace-ro" grants one. */
+  filesystemAccess: "none" | "workspace-ro";
   /** Container image used by the sandbox executor, when applicable. */
   image?: string;
 }

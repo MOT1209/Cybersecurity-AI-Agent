@@ -19,6 +19,7 @@ import type { Container } from "dockerode";
 import type { ToolExecutor, ToolRunRequest, ToolRunResult, SandboxInfo } from "./types";
 import { DEFAULT_TIMEOUT_MS } from "./types";
 import { ensureSandboxNetwork, allowEgress, networkModeFor } from "./network";
+import { CONTAINER_WORKSPACE } from "../security/workspace";
 
 type DockerCtor = new () => DockerodeType;
 
@@ -165,7 +166,11 @@ export class DockerExecutor implements ToolExecutor {
           Privileged: false,
           IpcMode: "private",
           UsernsMode: "",
-          Binds: [],
+          // The one permitted bind: an already-containment-checked workspace
+          // path, mounted read-only. Never the host Docker socket.
+          Binds: req.workspaceHostPath
+            ? [`${req.workspaceHostPath}:${CONTAINER_WORKSPACE}:ro`]
+            : [],
           AutoRemove: false,
         },
       });

@@ -19,7 +19,8 @@ import {
 } from "./src/server/core/index";
 import { executeTool, GatewayDeniedError, ApprovalRequiredError } from "./src/server/sandbox/index";
 import { ToolNotAvailableError, ToolNotRegisteredError } from "./src/server/core/errors";
-import { listTools, getToolAdapter } from "./src/server/tools/registry";
+import { listTools, getToolAdapter, getToolDescriptor } from "./src/server/tools/registry";
+import { resolveWorkspacePath } from "./src/server/security/workspace";
 import { checkAllToolHealth, checkToolHealth } from "./src/server/tools/health";
 import { agentManager } from "./src/server/agents/index";
 import { listEvents } from "./src/server/core/events";
@@ -389,9 +390,23 @@ export async function createApp() {
       // tool validates the params, builds the argv and parses the output. There
       // is no per-tool branching and no silent path for an unknown tool.
       const adapter = getToolAdapter(toolId);
+      const descriptor = getToolDescriptor(toolId);
       let executionResult;
       if (adapter) {
-        const built = adapter.build(target, params);
+        // Filesystem-scoped tools take a path, not a host. Resolve it against
+        // the workspace root FIRST — the tool only ever sees the contained
+        // container-side path, and the mount is read-only.
+        let scanTarget = target;
+        let workspaceHostPath: string | undefined;
+        if (descriptor?.targetKind === "filesystem") {
+          const resolved = await resolveWorkspacePath(target);
+          if (!resolved.ok) {
+            return res.status(400).json({ error: "WORKSPACE_PATH_REJECTED", message: resolved.error });
+          }
+          scanTarget = resolved.containerPath!;
+          workspaceHostPath = resolved.hostPath!;
+        }
+        const built = adapter.build(scanTarget, params);
         const raw = await executeTool({
           toolId,
           target: built.target,
@@ -400,6 +415,7 @@ export async function createApp() {
           params: built.params,
           projectId,
           approvalToken,
+          workspaceHostPath,
         });
         executionResult = adapter.parse(raw);
       } else {

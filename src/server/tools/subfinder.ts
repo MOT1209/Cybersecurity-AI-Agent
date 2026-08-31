@@ -124,6 +124,8 @@ export const subfinderDescriptor: ToolDescriptor = {
   resourceLimits: { ...DEFAULT_RESOURCE_LIMITS, memoryMb: 256 },
   sandboxRequired: true,
   needsNetwork: true,
+  targetKind: "network",
+  filesystemAccess: "none",
   get image() {
     return subfinderImage();
   },

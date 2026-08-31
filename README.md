@@ -94,8 +94,8 @@ them:
 
 | State | Behavior |
 |---|---|
-| Registered **and** implemented (`nmap`) | executes for real |
-| Registered, no adapter (`nuclei`, `zap`, `semgrep`, `trivy`, `subfinder`, `prowler`, `volatility`) | `503 NOT_AVAILABLE` with the reason |
+| Registered **and** implemented (`nmap`, `subfinder`, `nuclei`, `semgrep`, `trivy`) | executes for real |
+| Registered, no adapter (`zap`, `prowler`, `volatility`) | `503 NOT_AVAILABLE` with the reason |
 | Not registered | `400 TOOL_NOT_REGISTERED` — fail closed |
 
 ### Honest failure (no fabricated results)
@@ -125,6 +125,25 @@ Every containerized tool run gets:
   private IPC, no bind mounts and **no host Docker socket**;
 - CPU / memory (with no swap headroom) / pid ceilings and a wall-clock timeout
   taken from the tool's own descriptor — a caller cannot widen them.
+
+### Code-scanning tools and the workspace boundary
+`semgrep` and `trivy` are **filesystem-scoped**: their target is a path, not a
+host, so the network allow-list does not apply to them. Containment does.
+
+- Only paths whose **real path** (symlinks resolved) sits inside
+  `SANDBOX_WORKSPACE_ROOT` are mountable — `../`, an absolute path and a symlink
+  pointing out of the tree are all rejected, and the root itself cannot be
+  mounted.
+- The mount is **read-only**, and it is the only bind mount the sandbox ever
+  makes.
+- Both tools run with **no network** and fully offline (`--metrics=off`,
+  `--offline-scan`, `--skip-db-update`), so an untrusted repository cannot be
+  modified and cannot phone home.
+- Semgrep rulesets come from a curated allowlist; a free-form `--config` would
+  accept a URL, which is caller-driven remote rule execution.
+- Trivy deliberately does **not** expose remote `image` scanning as a mode flag
+   — that needs registry egress and a caller-controlled image reference, which
+  is a different trust boundary.
 
 ### Risk policy & human approval
 Risk is read from the tool registry — never from a name list, a request body, or

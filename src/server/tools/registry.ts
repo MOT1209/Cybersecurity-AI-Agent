@@ -19,6 +19,8 @@ import { DEFAULT_RESOURCE_LIMITS } from "./types";
 import { nmapAdapter } from "./nmap";
 import { subfinderAdapter } from "./subfinder";
 import { nucleiAdapter } from "./nuclei";
+import { semgrepAdapter } from "./semgrep";
+import { trivyAdapter } from "./trivy";
 
 /** Declared-but-unimplemented tools, surfaced honestly to the UI and API. */
 function declared(
@@ -43,14 +45,20 @@ function declared(
     resourceLimits: DEFAULT_RESOURCE_LIMITS,
     sandboxRequired: true,
     needsNetwork,
+    targetKind: needsNetwork ? "network" : "filesystem",
+    filesystemAccess: needsNetwork ? "none" : "workspace-ro",
   };
 }
 
-const ADAPTERS: ToolAdapter[] = [nmapAdapter, subfinderAdapter, nucleiAdapter];
+const ADAPTERS: ToolAdapter[] = [
+  nmapAdapter,
+  subfinderAdapter,
+  nucleiAdapter,
+  semgrepAdapter,
+  trivyAdapter,
+];
 
 const DECLARED: ToolDescriptor[] = [
-  declared("semgrep", "Semgrep SAST Code Engine", "LOW", ["static-analysis"], "Static application security testing. Adapter not implemented yet.", false),
-  declared("trivy", "Trivy Container & FS Scanner", "LOW", ["container-scan", "dependency-scan", "fs-scan"], "Container/dependency/filesystem scanning. Adapter not implemented yet.", false),
   declared("zap", "OWASP ZAP Dynamic API Tester", "HIGH", ["dast"], "Dynamic web application testing. Adapter not implemented yet."),
   declared("prowler", "Prowler Cloud Security Auditing", "MEDIUM", ["cloud-audit"], "Cloud posture auditing. Adapter not implemented yet."),
   declared("volatility", "Volatility Memory Forensics Engine", "LOW", ["memory-forensics"], "Memory image forensics. Adapter not implemented yet.", false),
