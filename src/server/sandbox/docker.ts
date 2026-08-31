@@ -87,6 +87,18 @@ export class DockerExecutor implements ToolExecutor {
     }
   }
 
+  /** True when the image already exists on the Docker host. */
+  async hasImage(image: string): Promise<boolean> {
+    const docker = await this.getDocker();
+    if (!docker) return false;
+    try {
+      await docker.getImage(image).inspect();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async run(req: ToolRunRequest): Promise<ToolRunResult> {
     const timestamp = new Date().toISOString();
     const timeoutMs = req.timeoutMs ?? DEFAULT_TIMEOUT_MS;

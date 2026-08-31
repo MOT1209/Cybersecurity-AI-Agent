@@ -10,3 +10,4 @@
 export * from "./types";
 export * from "./nmap";
 export * from "./registry";
+export * from "./health";

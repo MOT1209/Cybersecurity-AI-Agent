@@ -12,6 +12,7 @@
 import crypto from "crypto";
 import { AgentNotRegisteredError, AgentRunError } from "../core/errors";
 import { addAuditLog } from "../core/store";
+import { emitEvent } from "../core/events";
 import { isToolRegistered } from "../tools/registry";
 import type { AgentResult } from "./base";
 import type {
@@ -122,6 +123,8 @@ export class AgentManager {
     const onExternalAbort = () => ctrl.abort();
     opts.signal?.addEventListener("abort", onExternalAbort);
 
+    emitEvent("AGENT_STARTED", { traceId, runId, agentId, projectId });
+
     const started = Date.now();
     let timer: NodeJS.Timeout | undefined;
     const timeout = new Promise<never>((_, reject) => {
@@ -139,12 +142,14 @@ export class AgentManager {
         timeout,
       ])) as AgentResult<T>;
       record.state = "COMPLETED";
+      emitEvent("AGENT_COMPLETED", { traceId, runId, agentId, projectId });
       return result;
     } catch (err) {
       const e = err as Error;
       record.state =
         e instanceof AgentRunError && e.code === "TIMEOUT" ? "TIMEOUT" : "FAILED";
       record.error = e.message;
+      emitEvent("TASK_FAILED", { traceId, runId, agentId, projectId, detail: e.message });
       addAuditLog(
         "AgentManager",
         `AGENT_${agentId.toUpperCase()}`,

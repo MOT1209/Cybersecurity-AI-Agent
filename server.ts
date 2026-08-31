@@ -20,6 +20,10 @@ import {
 import { executeTool, GatewayDeniedError, ApprovalRequiredError } from "./src/server/sandbox/index";
 import { ToolNotAvailableError, ToolNotRegisteredError } from "./src/server/core/errors";
 import { buildNmapRequest, summarizeNmapResult, NMAP_TOOL_ID } from "./src/server/tools/index";
+import { listTools } from "./src/server/tools/registry";
+import { checkAllToolHealth, checkToolHealth } from "./src/server/tools/health";
+import { agentManager } from "./src/server/agents/index";
+import { listEvents } from "./src/server/core/events";
 import { runMission, buildOrchestratedMultiAgentPlan } from "./src/server/orchestrator/index";
 import { ZodError } from "zod";
 
@@ -275,6 +279,46 @@ export async function createApp() {
       addAuditLog("LocalOrchestrator", "RUN_MISSION_FALLBACK", target, "COMPLETED", `Fallback plan after engine error: ${(err as Error).message}`);
       return res.json(fallbackPlan);
     }
+  });
+
+  // --- Platform introspection: tools, agents, runs, events (§29/§31/§32) ---
+
+  /** Tool registry listing. `implemented` distinguishes a real adapter from a
+   *  declared-only catalog entry — the UI must not show the latter as usable. */
+  app.get("/api/tools", (_req, res) => {
+    res.json({ tools: listTools() });
+  });
+
+  /** Real health probes. Never reports a tool as installed without verifying. */
+  app.get("/api/tools/health", async (_req, res) => {
+    res.json({ tools: await checkAllToolHealth() });
+  });
+
+  app.get("/api/tools/:toolId/health", async (req, res) => {
+    const check = validateStringField(req.params.toolId, "toolId", 100, true);
+    if (!check.valid) {
+      return res.status(400).json({ error: "VALIDATION_ERROR", message: check.error });
+    }
+    res.json(await checkToolHealth(req.params.toolId));
+  });
+
+  /** Registered, executable agents. Zod schemas are omitted (not serializable). */
+  app.get("/api/agents", (_req, res) => {
+    res.json({
+      agents: agentManager.list().map(({ inputSchema: _i, outputSchema: _o, ...rest }) => rest),
+    });
+  });
+
+  /** Agent run history for this process. */
+  app.get("/api/runs", (_req, res) => {
+    res.json({ runs: agentManager.listRuns() });
+  });
+
+  /** Event stream buffer, newest first. Filter one mission with ?traceId=. */
+  app.get("/api/events", (req, res) => {
+    const traceId = typeof req.query.traceId === "string" ? req.query.traceId : undefined;
+    const limit = Number(req.query.limit) || 100;
+    res.json({ events: listEvents({ traceId, limit }) });
   });
 
   // Audit Logs API

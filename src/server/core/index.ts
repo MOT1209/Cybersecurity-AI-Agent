@@ -10,3 +10,5 @@ export * from "./validation";
 export * from "./store";
 export * from "./scope";
 export * from "./gateway";
+export * from "./events";
+export * from "./errors";

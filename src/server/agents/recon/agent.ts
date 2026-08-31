@@ -103,6 +103,7 @@ export class ReconAgent extends BaseAgent {
       params: req.params,
       projectId: input.projectId,
       actor: "ReconAgent",
+      traceId: ctx?.traceId,
     });
     const result = summarizeNmapResult(rawResult);
     this.logToolCall(result);

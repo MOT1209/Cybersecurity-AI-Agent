@@ -13,7 +13,7 @@ import { generateJSON, wrapUserInput } from "../llm/index";
 import { agentManager } from "../agents/index";
 import type { ReconData } from "../agents/recon/agent";
 import { GatewayDeniedError } from "../sandbox/index";
-import { addAuditLog } from "../core/index";
+import { addAuditLog, emitEvent, listEvents } from "../core/index";
 import { buildOrchestratedMultiAgentPlan } from "./localPlan";
 
 export { buildOrchestratedMultiAgentPlan } from "./localPlan";
@@ -45,13 +45,16 @@ export async function runMission(input: MissionInput) {
 
   // Deterministic template — the guaranteed-valid baseline and LLM fallback.
   const plan = buildOrchestratedMultiAgentPlan(userPrompt, target, projectId);
+  const traceId: string = plan.traceId;
+  emitEvent("TASK_CREATED", { traceId, projectId, target, detail: userPrompt.substring(0, 120) });
+  emitEvent("TASK_STARTED", { traceId, projectId, target });
 
   // --- Real Recon (nmap in the sandbox), dispatched via the Agent Manager ---
   // GatewayDeniedError / ToolNotAvailableError propagate to the route.
   const recon = await agentManager.dispatch<ReconData>(
     "recon",
     { target, projectId },
-    { projectId, traceId: plan.traceId },
+    { projectId, traceId },
   );
   const { openPorts, openPortCount, sandboxMode, analysis } = recon.data;
   const openList =
@@ -172,6 +175,7 @@ export async function runMission(input: MissionInput) {
           }))
         : plan.generatedFindings),
     ],
+    events: listEvents({ traceId, limit: 100 }).slice().reverse(),
     engine: {
       reconReal: true,
       sandboxMode,
@@ -179,6 +183,13 @@ export async function runMission(input: MissionInput) {
       llmFallback: synth.fallback,
     },
   };
+
+  emitEvent("TASK_COMPLETED", {
+    traceId,
+    projectId,
+    target,
+    detail: `recon=real sandbox=${sandboxMode} llm=${synth.provider}${synth.fallback ? " (fallback)" : ""}`,
+  });
 
   addAuditLog(
     "AI_Orchestrator",

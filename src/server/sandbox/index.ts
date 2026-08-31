@@ -9,6 +9,7 @@
  */
 
 import { validateSecurityGateway, addAuditLog } from "../core/index";
+import { emitEvent } from "../core/events";
 import { ToolNotAvailableError, ToolNotRegisteredError } from "../core/errors";
 import { isToolRegistered, hasAdapter } from "../tools/registry";
 import type { GatewayDecision } from "../core/gateway";
@@ -96,6 +97,8 @@ export interface ExecuteToolParams {
   actor?: string;
   /** Recorded human approval, required for high-risk tools. */
   approved?: boolean;
+  /** Correlates this run with the mission/agent that requested it. */
+  traceId?: string;
 }
 
 /**
@@ -105,8 +108,12 @@ export interface ExecuteToolParams {
  * Never throws for a mere tool failure — that is reported via status/exitCode.
  */
 export async function executeTool(p: ExecuteToolParams): Promise<ToolRunResult> {
+  const traceId = p.traceId;
+  emitEvent("TOOL_REQUESTED", { traceId, toolId: p.toolId, target: p.target, projectId: p.projectId });
+
   // 0. Registry: unknown tools are denied outright (fail closed).
   if (!isToolRegistered(p.toolId)) {
+    emitEvent("TOOL_DENIED", { traceId, toolId: p.toolId, target: p.target, detail: "not registered" });
     addAuditLog(
       p.actor || "ToolManager",
       `BLOCKED_${p.toolId.toUpperCase()}`,
@@ -119,6 +126,7 @@ export async function executeTool(p: ExecuteToolParams): Promise<ToolRunResult> 
 
   const decision = validateSecurityGateway(p.target, p.toolId, p.projectId);
   if (!decision.isAllowed) {
+    emitEvent("TOOL_DENIED", { traceId, toolId: p.toolId, target: p.target, detail: decision.reason });
     throw new GatewayDeniedError(decision);
   }
   // Enforce human-in-the-loop for high-risk tools instead of only flagging it.
@@ -130,6 +138,7 @@ export async function executeTool(p: ExecuteToolParams): Promise<ToolRunResult> 
       "APPROVAL_REQUIRED",
       `High-risk tool "${p.toolId}" blocked pending explicit human approval.`,
     );
+    emitEvent("TOOL_DENIED", { traceId, toolId: p.toolId, target: p.target, detail: "approval required" });
     throw new ApprovalRequiredError(decision);
   }
 
@@ -143,13 +152,22 @@ export async function executeTool(p: ExecuteToolParams): Promise<ToolRunResult> 
       "NOT_AVAILABLE",
       `Tool "${p.toolId}" is declared in the registry but has no implemented adapter.`,
     );
+    emitEvent("TOOL_NOT_AVAILABLE", { traceId, toolId: p.toolId, target: p.target, detail: "no adapter implemented" });
     throw new ToolNotAvailableError(
       p.toolId,
       "it is declared in the registry but has no implemented adapter yet",
     );
   }
 
-  const executor = await resolveExecutor(p.toolId);
+  emitEvent("TOOL_APPROVED", { traceId, toolId: p.toolId, target: p.target, detail: `risk=${decision.riskLevel}` });
+
+  let executor: ToolExecutor;
+  try {
+    executor = await resolveExecutor(p.toolId);
+  } catch (err) {
+    emitEvent("TOOL_NOT_AVAILABLE", { traceId, toolId: p.toolId, target: p.target, detail: (err as Error).message });
+    throw err;
+  }
   const req: ToolRunRequest = {
     toolId: p.toolId,
     target: p.target,
@@ -164,7 +182,14 @@ export async function executeTool(p: ExecuteToolParams): Promise<ToolRunResult> 
       "no container image is configured for this tool, so it cannot run in the Docker sandbox",
     );
   }
+  emitEvent("TOOL_STARTED", { traceId, toolId: p.toolId, target: p.target, detail: `sandbox=${executor.id}` });
   const result = await executor.run(req);
+  emitEvent("TOOL_COMPLETED", {
+    traceId,
+    toolId: p.toolId,
+    target: p.target,
+    detail: `status=${result.status} exit=${result.exitCode} sandbox=${result.sandbox.mode}`,
+  });
 
   addAuditLog(
     p.actor || "ToolManager",
