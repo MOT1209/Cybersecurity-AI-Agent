@@ -13,7 +13,7 @@ import { runMission } from "../src/server/orchestrator/index";
 describe("agent registry", () => {
   it("exposes recon, web and code agents with distinct tool allowlists", () => {
     const ids = agentManager.list().map((d) => d.id);
-    expect(ids).toEqual(["code_security", "recon", "web_security"]);
+    expect(ids).toEqual(["code_security", "recon", "validation", "web_security"]);
   });
 
   it("routes by capability rather than by hardcoded id", () => {

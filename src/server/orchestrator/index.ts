@@ -13,6 +13,13 @@ import { generateJSON, wrapUserInput } from "../llm/index";
 import { agentManager } from "../agents/index";
 import type { ReconData } from "../agents/recon/agent";
 import type { WebData } from "../agents/web/agent";
+import type { ValidationData } from "../agents/validation/agent";
+import {
+  fromNmapPorts,
+  fromNucleiDetections,
+  recordFindings,
+  listFindings,
+} from "../findings/engine";
 import { GatewayDeniedError } from "../sandbox/index";
 import { addAuditLog, emitEvent, listEvents } from "../core/index";
 import { buildOrchestratedMultiAgentPlan } from "./localPlan";
@@ -164,40 +171,53 @@ export async function runMission(input: MissionInput) {
     localSynth,
   );
 
-  // --- Assemble ---
-  const reconFinding =
-    openPortCount > 0
-      ? [
-          {
-            id: `find_recon_${Date.now()}`,
-            projectId,
-            title: `Exposed network services on ${target} (nmap)`,
-            target,
-            timestamp: new Date().toISOString(),
-            discoveredByAgent: "recon",
-            toolUsed: `nmap (${sandboxMode} sandbox)`,
-            severity: "INFO",
-            cvssScore: 0,
-            cwe: "CWE-200",
-            owaspCategory: "A05:2021-Security Misconfiguration",
-            description: `nmap observed ${openPortCount} open port(s): ${openList}.`,
-            impact: "Exposed services widen the attack surface and should be reviewed.",
-            evidence: openList,
-            validation: {
-              isValidated: true,
-              validatedByAgent: "recon",
-              confidenceScore: 100,
-              evidenceTrace: [`Real nmap scan via ${sandboxMode} sandbox.`],
-              falsePositiveAnalysis: "Direct scan result.",
-              retestStatus: "CONFIRMED",
-            },
-            remediation: {
-              summary: "Close or firewall unneeded services; restrict access to required ports only.",
-              hardeningSteps: ["Apply least-exposure firewalling", "Disable unused services"],
-            },
-          },
-        ]
-      : [];
+  // --- Findings: every real detection enters the engine at DETECTED ---
+  const findingCtx = { projectId, target, traceId };
+  const realFindings = [
+    ...recordFindings(
+      fromNmapPorts(openPorts, { ...findingCtx, agentId: "recon", toolId: "nmap" }),
+    ),
+    ...(web
+      ? recordFindings(
+          fromNucleiDetections(web.data.detections, {
+            ...findingCtx,
+            agentId: "web_security",
+            toolId: "nuclei",
+          }),
+        )
+      : []),
+  ];
+
+  // --- Validation: the only stage that can confirm anything ---
+  let validation: ValidationData | null = null;
+  if (realFindings.length) {
+    try {
+      const res = await agentManager.dispatch<ValidationData>(
+        "validation",
+        { findingIds: realFindings.map((f) => f.id), projectId, traceId },
+        { projectId, traceId },
+      );
+      validation = res.data;
+    } catch {
+      // Validation failing leaves findings DETECTED — which is the safe state.
+      validation = null;
+    }
+  }
+
+  const validationStepIdx = plan.steps.findIndex((st: any) => st.agent === "vuln_analysis");
+  if (validationStepIdx >= 0 && validation) {
+    plan.steps[validationStepIdx] = {
+      ...plan.steps[validationStepIdx],
+      toolName: "evidence review (no exploitation)",
+      status: "COMPLETED",
+      real: true,
+      inputSummary: `Reviewed ${realFindings.length} detection(s) against recorded evidence`,
+      outputSummary: `${validation.confirmed} confirmed, ${validation.unconfirmed} unconfirmed`,
+      detailedLog: `[Validation Agent] ${validation.verdicts.length} verdict(s) applied.`,
+    };
+  }
+
+  const storedFindings = listFindings({ traceId });
 
   const usedModel = !synth.fallback;
   const result = {
@@ -208,8 +228,12 @@ export async function runMission(input: MissionInput) {
     templateOnly: false,
     summaryAr: synth.data.summaryAr || plan.summaryAr,
     summaryEn: synth.data.summaryEn || plan.summaryEn,
+    // Real, engine-tracked findings carrying their true verification status.
+    findings: storedFindings,
+    validation,
+    // Legacy key the SPA reads. Real findings first, hypotheses after.
     generatedFindings: [
-      ...reconFinding,
+      ...storedFindings,
       // Model output is a hypothesis until the Validation agent confirms it, so
       // it is stamped rather than presented alongside the real recon finding.
       ...(usedModel && Array.isArray(synth.data.findings)
@@ -232,6 +256,8 @@ export async function runMission(input: MissionInput) {
     engine: {
       reconReal: true,
       webReal: web !== null,
+      findingsRecorded: storedFindings.length,
+      findingsConfirmed: validation?.confirmed ?? 0,
       webSkippedReason: web ? undefined : (webError ?? "recon observed no open HTTP service"),
       sandboxMode,
       llmProvider: synth.provider,

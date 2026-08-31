@@ -12,6 +12,7 @@ import { agentManager } from "./manager";
 import { reconAgent } from "./recon/agent";
 import { webAgent } from "./web/agent";
 import { codeAgent } from "./code/agent";
+import { validationAgent } from "./validation/agent";
 
 export * from "./base";
 export * from "./types";
@@ -19,7 +20,9 @@ export * from "./manager";
 export * from "./recon/agent";
 export * from "./web/agent";
 export * from "./code/agent";
+export * from "./validation/agent";
 
 agentManager.register(reconAgent);
 agentManager.register(webAgent);
 agentManager.register(codeAgent);
+agentManager.register(validationAgent);

@@ -77,13 +77,15 @@ describe("introspection APIs", () => {
     const app = await createApp();
     const res = await request(app).get("/api/agents").expect(200);
     const byId = Object.fromEntries(res.body.agents.map((a: any) => [a.id, a]));
-    expect(Object.keys(byId).sort()).toEqual(["code_security", "recon", "web_security"]);
+    expect(Object.keys(byId).sort()).toEqual(["code_security", "recon", "validation", "web_security"]);
     expect(byId.recon.allowedTools).toEqual(["nmap"]);
     expect(byId.web_security.allowedTools).toEqual(["nuclei"]);
     expect(byId.code_security.allowedTools).toEqual(["semgrep", "trivy"]);
     // Only agents with a real implementation are listed; the other nine
     // catalog entries in the UI are not registered.
-    expect(res.body.agents).toHaveLength(3);
+    expect(res.body.agents).toHaveLength(4);
+    // The Validation agent holds no tools: it reviews evidence, it does not scan.
+    expect(byId.validation.allowedTools).toEqual([]);
   });
 
   it("GET /api/tools/execute rejects an unregistered tool with 400", async () => {

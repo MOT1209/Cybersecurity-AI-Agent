@@ -21,6 +21,7 @@ import { executeTool, GatewayDeniedError, ApprovalRequiredError } from "./src/se
 import { ToolNotAvailableError, ToolNotRegisteredError } from "./src/server/core/errors";
 import { listTools, getToolAdapter, getToolDescriptor } from "./src/server/tools/registry";
 import { resolveWorkspacePath } from "./src/server/security/workspace";
+import { listFindings, getFinding } from "./src/server/findings/engine";
 import { checkAllToolHealth, checkToolHealth } from "./src/server/tools/health";
 import { agentManager } from "./src/server/agents/index";
 import { listEvents } from "./src/server/core/events";
@@ -284,6 +285,38 @@ export async function createApp() {
       addAuditLog("LocalOrchestrator", "RUN_MISSION_FALLBACK", target, "COMPLETED", `Fallback plan after engine error: ${(err as Error).message}`);
       return res.json(fallbackPlan);
     }
+  });
+
+  // --- Findings (§18) ---
+
+  /**
+   * Findings with their true verification status. A finding is only ever
+   * CONFIRMED if the Validation agent said so; scanner output alone stays
+   * DETECTED. Filter with ?status=, ?projectId=, ?traceId=, ?minSeverity=.
+   */
+  app.get("/api/findings", (req, res) => {
+    const q = req.query as Record<string, string | undefined>;
+    const findings = listFindings({
+      projectId: q.projectId,
+      traceId: q.traceId,
+      status: q.status as never,
+      minSeverity: q.minSeverity as never,
+    });
+    res.json({
+      findings,
+      counts: {
+        total: findings.length,
+        confirmed: findings.filter((f) => f.validation.status === "CONFIRMED").length,
+        detected: findings.filter((f) => f.validation.status === "DETECTED").length,
+        unconfirmed: findings.filter((f) => f.validation.status === "UNCONFIRMED").length,
+      },
+    });
+  });
+
+  app.get("/api/findings/:id", (req, res) => {
+    const f = getFinding(req.params.id);
+    if (!f) return res.status(404).json({ error: "NOT_FOUND", message: "No such finding." });
+    res.json(f);
   });
 
   // --- Human approval system (§15) ---

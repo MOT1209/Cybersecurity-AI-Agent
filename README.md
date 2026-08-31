@@ -92,6 +92,7 @@ Currently registered and executable:
 | `recon` | nmap | sandboxed TCP connect scan |
 | `web_security` | nuclei | non-intrusive templates; detections stay unconfirmed |
 | `code_security` | semgrep, trivy | read-only workspace mount, no network |
+| `validation` | *(none)* | evidence review only — no exploitation |
 
 The other nine agents are catalog entries in the UI and are **not** executable;
 `/api/agents` lists only the three above.
@@ -124,6 +125,30 @@ The platform will not report a success that did not happen.
 - Template and model-generated findings carry `hypothetical: true` with
   `retestStatus: "UNVERIFIED"` and confidence `0`. Only findings produced by a
   real tool run are presented as observed.
+
+### Findings & validation
+A scanner result is **not** a vulnerability. Every detection enters the findings
+engine at `DETECTED` with confidence `0`, and there is no code path in the engine
+that produces a `CONFIRMED` finding — only the Validation agent can move one.
+
+The Validation agent performs **no exploitation**. It reviews the evidence that
+already exists:
+
+- **Scope** — a finding about an asset outside the approved scope is never
+  confirmed, however good the evidence looks.
+- **Traceability** — evidence without a sha256 linking it to a recorded tool run
+  is capped at confidence 40 and cannot be confirmed.
+- **Directness** — only direct observations (`nmap`, `subfinder`) can reach
+  `CONFIRMED`. Inferential tools (`nuclei`, `semgrep`, `trivy`) stay
+  `UNCONFIRMED` pending safe reproduction, with their false-positive risks and
+  missing evidence spelled out.
+
+The deterministic rules set the ceiling. The model may only **lower** confidence
+and add false-positive reasoning — its "penalty" is clamped non-negative, so it
+cannot talk a finding into being real.
+
+Browse results at `GET /api/findings` (filter by `status`, `traceId`,
+`minSeverity`) and `GET /api/findings/:id`.
 
 ### Sandbox isolation
 Every containerized tool run gets:
