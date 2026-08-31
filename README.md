@@ -85,8 +85,21 @@ registry, so a broken allowlist fails at startup rather than widening at
 execution time. Dispatch enforces the declared timeout, supports cancellation
 via `AbortSignal`, and records every run.
 
-Currently registered: **`recon`** (real, sandboxed nmap). The other eleven
-agents are catalog entries in the UI and are **not** executable.
+Currently registered and executable:
+
+| Agent | Tools | Notes |
+|---|---|---|
+| `recon` | nmap | sandboxed TCP connect scan |
+| `web_security` | nuclei | non-intrusive templates; detections stay unconfirmed |
+| `code_security` | semgrep, trivy | read-only workspace mount, no network |
+
+The other nine agents are catalog entries in the UI and are **not** executable;
+`/api/agents` lists only the three above.
+
+The orchestrator chains on **evidence, not on the prompt**: the web scan runs
+only when recon actually observed an open HTTP port. When it does not, the step
+is returned `SKIPPED` with the reason, and a web-scan failure never discards the
+real recon result.
 
 ### Tool registry
 `src/server/tools/registry.ts` distinguishes three states, and never conflates

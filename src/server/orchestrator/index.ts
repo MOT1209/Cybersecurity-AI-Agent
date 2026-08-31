@@ -12,6 +12,7 @@
 import { generateJSON, wrapUserInput } from "../llm/index";
 import { agentManager } from "../agents/index";
 import type { ReconData } from "../agents/recon/agent";
+import type { WebData } from "../agents/web/agent";
 import { GatewayDeniedError } from "../sandbox/index";
 import { addAuditLog, emitEvent, listEvents } from "../core/index";
 import { buildOrchestratedMultiAgentPlan } from "./localPlan";
@@ -86,6 +87,58 @@ export async function runMission(input: MissionInput) {
       detailedLog: `[Recon Agent] ${recon.summary} | toolCalls=${JSON.stringify(recon.toolCalls)}`,
       real: true,
     };
+  }
+
+  // --- Real Web scan, but only when recon actually observed an HTTP service.
+  // Chaining on evidence rather than on the prompt keeps the platform from
+  // probing a port that was never found open.
+  const httpPorts = openPorts.filter(
+    (p) => p.state === "open" && [80, 443, 8080, 8000, 8443].includes(p.port),
+  );
+  let web: { data: WebData; summary: string } | null = null;
+  let webError: string | null = null;
+  if (httpPorts.length) {
+    const port = httpPorts[0];
+    const scheme = [443, 8443].includes(port.port) ? "https" : "http";
+    const webTarget = `${scheme}://${target}:${port.port}`;
+    try {
+      const res = await agentManager.dispatch<WebData>(
+        "web_security",
+        { target: webTarget, projectId },
+        { projectId, traceId },
+      );
+      web = { data: res.data, summary: res.summary };
+    } catch (err) {
+      // A web-scan failure must not lose the real recon result.
+      webError = (err as Error).message;
+    }
+  }
+
+  const webStepIdx = plan.steps.findIndex((s: any) => s.agent === "web_security");
+  if (webStepIdx >= 0) {
+    if (web) {
+      plan.steps[webStepIdx] = {
+        ...plan.steps[webStepIdx],
+        toolName: "nuclei (sandbox)",
+        status: "COMPLETED",
+        real: true,
+        inputSummary: `Real nuclei scan of ${web.data.target}`,
+        outputSummary: `${web.data.detectionCount} unconfirmed detection(s) [sandbox: ${web.data.sandboxMode}]`,
+        detailedLog: `[Web Agent] ${web.summary}`,
+      };
+    } else {
+      plan.steps[webStepIdx] = {
+        ...plan.steps[webStepIdx],
+        status: httpPorts.length ? "FAILED" : "SKIPPED",
+        real: false,
+        outputSummary: webError
+          ? `لم يُنفَّذ: ${webError}`
+          : "تم التخطي: لم يرصد الاستطلاع أي خدمة HTTP مفتوحة.",
+        detailedLog: webError
+          ? `[Web Agent] NOT EXECUTED: ${webError}`
+          : "[Web Agent] SKIPPED: recon observed no open HTTP service, so there was nothing to scan.",
+      };
+    }
   }
 
   // --- LLM synthesis of the remaining analysis, grounded in real recon ---
@@ -178,6 +231,8 @@ export async function runMission(input: MissionInput) {
     events: listEvents({ traceId, limit: 100 }).slice().reverse(),
     engine: {
       reconReal: true,
+      webReal: web !== null,
+      webSkippedReason: web ? undefined : (webError ?? "recon observed no open HTTP service"),
       sandboxMode,
       llmProvider: synth.provider,
       llmFallback: synth.fallback,
@@ -188,7 +243,7 @@ export async function runMission(input: MissionInput) {
     traceId,
     projectId,
     target,
-    detail: `recon=real sandbox=${sandboxMode} llm=${synth.provider}${synth.fallback ? " (fallback)" : ""}`,
+    detail: `recon=real web=${web ? "real" : "skipped"} sandbox=${sandboxMode} llm=${synth.provider}${synth.fallback ? " (fallback)" : ""}`,
   });
 
   addAuditLog(

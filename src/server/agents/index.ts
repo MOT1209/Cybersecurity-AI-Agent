@@ -10,10 +10,16 @@
 
 import { agentManager } from "./manager";
 import { reconAgent } from "./recon/agent";
+import { webAgent } from "./web/agent";
+import { codeAgent } from "./code/agent";
 
 export * from "./base";
 export * from "./types";
 export * from "./manager";
 export * from "./recon/agent";
+export * from "./web/agent";
+export * from "./code/agent";
 
 agentManager.register(reconAgent);
+agentManager.register(webAgent);
+agentManager.register(codeAgent);
