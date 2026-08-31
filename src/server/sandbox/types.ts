@@ -21,6 +21,10 @@ export interface ToolRunRequest {
   timeoutMs?: number;
   /** Free-form params echoed back into structuredData for traceability. */
   params?: Record<string, unknown>;
+  /** Per-tool resource ceiling. Falls back to the sandbox defaults. */
+  resourceLimits?: { cpus: number; memoryMb: number; pids: number };
+  /** False for offline tools, which are run with no network at all. */
+  needsNetwork?: boolean;
 }
 
 export interface SandboxInfo {
@@ -29,6 +33,10 @@ export interface SandboxInfo {
   cpuLimit: string;
   memoryLimit: string;
   network: string;
+  /** True when the container could not route off the sandbox network. */
+  egressBlocked: boolean;
+  /** Writable scratch space, mounted as tmpfs. Root filesystem is read-only. */
+  workspace: string;
   /** "docker" for real execution, "local-sim" for the simulated fallback. */
   mode: "docker" | "local-sim";
 }

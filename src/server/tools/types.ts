@@ -43,6 +43,11 @@ export interface ToolDescriptor {
   resourceLimits: ResourceLimits;
   /** When true, the tool may only run inside a real isolated sandbox. */
   sandboxRequired: boolean;
+  /**
+   * False for tools that must never reach the network (SAST, filesystem
+   * scanning). Those run with no network interface at all.
+   */
+  needsNetwork: boolean;
   /** Container image used by the sandbox executor, when applicable. */
   image?: string;
 }

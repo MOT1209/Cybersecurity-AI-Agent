@@ -18,6 +18,7 @@ import type DockerodeType from "dockerode";
 import type { Container } from "dockerode";
 import type { ToolExecutor, ToolRunRequest, ToolRunResult, SandboxInfo } from "./types";
 import { DEFAULT_TIMEOUT_MS } from "./types";
+import { ensureSandboxNetwork, allowEgress, networkModeFor } from "./network";
 
 type DockerCtor = new () => DockerodeType;
 
@@ -112,12 +113,24 @@ export class DockerExecutor implements ToolExecutor {
       throw new Error("dockerode is not available");
     }
 
-    const network = process.env.SANDBOX_DOCKER_NETWORK || "bridge";
+    // Network: a dedicated internal bridge, or none at all for offline tools.
+    // Never the host's shared default bridge.
+    const needsNetwork = req.needsNetwork !== false;
+    const mode = networkModeFor(needsNetwork);
+    const network =
+      mode === "none" ? "none" : await ensureSandboxNetwork(docker);
+    const egressBlocked = mode === "none" || !allowEgress();
+
+    const limits = req.resourceLimits ?? { cpus: 1, memoryMb: 512, pids: 256 };
+    const workspace = "/tmp/cyberguard";
+
     const sandboxBase: Omit<SandboxInfo, "containerId"> = {
       isolated: true,
-      cpuLimit: "1.0",
-      memoryLimit: "512MB",
+      cpuLimit: String(limits.cpus),
+      memoryLimit: `${limits.memoryMb}MB`,
       network,
+      egressBlocked,
+      workspace,
       mode: "docker",
     };
 
@@ -136,14 +149,23 @@ export class DockerExecutor implements ToolExecutor {
         Tty: true,
         AttachStdout: true,
         AttachStderr: true,
+        WorkingDir: workspace,
         HostConfig: {
           NetworkMode: network,
           ReadonlyRootfs: true,
-          Memory: 512 * 1024 * 1024,
-          NanoCpus: 1_000_000_000,
-          PidsLimit: 256,
+          // The only writable path, and it dies with the container.
+          Tmpfs: { [workspace]: "rw,noexec,nosuid,size=64m" },
+          Memory: limits.memoryMb * 1024 * 1024,
+          MemorySwap: limits.memoryMb * 1024 * 1024, // no swap headroom
+          NanoCpus: Math.round(limits.cpus * 1_000_000_000),
+          PidsLimit: limits.pids,
           CapDrop: ["ALL"],
           SecurityOpt: ["no-new-privileges"],
+          // Never expose the host Docker socket or grant host namespaces.
+          Privileged: false,
+          IpcMode: "private",
+          UsernsMode: "",
+          Binds: [],
           AutoRemove: false,
         },
       });
@@ -200,6 +222,9 @@ export class DockerExecutor implements ToolExecutor {
           image,
           params: req.params ?? {},
           timeoutMs,
+          networkMode: mode,
+          egressBlocked,
+          resourceLimits: limits,
         },
       };
     } finally {

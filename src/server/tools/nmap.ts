@@ -98,6 +98,7 @@ export const nmapDescriptor: ToolDescriptor = {
   timeoutMs: 60_000,
   resourceLimits: DEFAULT_RESOURCE_LIMITS,
   sandboxRequired: true,
+  needsNetwork: true,
   get image() {
     return nmapImage();
   },

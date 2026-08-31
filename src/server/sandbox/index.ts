@@ -13,7 +13,7 @@ import { emitEvent } from "../core/events";
 import { consumeApproval } from "../security/approvals";
 import type { ApprovalOutcome } from "../security/approvals";
 import { ToolNotAvailableError, ToolNotRegisteredError } from "../core/errors";
-import { isToolRegistered, hasAdapter } from "../tools/registry";
+import { isToolRegistered, hasAdapter, getToolDescriptor } from "../tools/registry";
 import type { GatewayDecision } from "../core/gateway";
 import { LocalSimExecutor } from "./localSim";
 import { DockerExecutor } from "./docker";
@@ -186,13 +186,18 @@ export async function executeTool(p: ExecuteToolParams): Promise<ToolRunResult> 
     emitEvent("TOOL_NOT_AVAILABLE", { traceId, toolId: p.toolId, target: p.target, detail: (err as Error).message });
     throw err;
   }
+  // Resource ceiling, timeout and network posture come from the tool's own
+  // descriptor — the caller cannot widen them.
+  const descriptor = getToolDescriptor(p.toolId);
   const req: ToolRunRequest = {
     toolId: p.toolId,
     target: p.target,
     args: p.args ?? [],
-    image: p.image,
-    timeoutMs: p.timeoutMs,
+    image: p.image ?? descriptor?.image,
+    timeoutMs: Math.min(p.timeoutMs ?? descriptor?.timeoutMs ?? 60_000, descriptor?.timeoutMs ?? 60_000),
     params: p.params,
+    resourceLimits: descriptor?.resourceLimits,
+    needsNetwork: descriptor?.needsNetwork ?? true,
   };
   if (executor.id === "docker" && !req.image) {
     throw new ToolNotAvailableError(

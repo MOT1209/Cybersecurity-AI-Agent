@@ -25,6 +25,7 @@ function declared(
   riskLevel: RiskLevel,
   capabilities: string[],
   description: string,
+  needsNetwork = true,
 ): ToolDescriptor {
   return {
     id,
@@ -39,6 +40,7 @@ function declared(
     timeoutMs: 60_000,
     resourceLimits: DEFAULT_RESOURCE_LIMITS,
     sandboxRequired: true,
+    needsNetwork,
   };
 }
 
@@ -47,11 +49,11 @@ const ADAPTERS: ToolAdapter[] = [nmapAdapter];
 const DECLARED: ToolDescriptor[] = [
   declared("subfinder", "Subfinder Subdomain Recon", "LOW", ["subdomain-enumeration"], "Passive subdomain discovery. Adapter not implemented yet."),
   declared("nuclei", "Nuclei Vulnerability Engine", "MEDIUM", ["template-scanning"], "Template-driven vulnerability detection. Adapter not implemented yet."),
-  declared("semgrep", "Semgrep SAST Code Engine", "LOW", ["static-analysis"], "Static application security testing. Adapter not implemented yet."),
-  declared("trivy", "Trivy Container & FS Scanner", "LOW", ["container-scan", "dependency-scan", "fs-scan"], "Container/dependency/filesystem scanning. Adapter not implemented yet."),
+  declared("semgrep", "Semgrep SAST Code Engine", "LOW", ["static-analysis"], "Static application security testing. Adapter not implemented yet.", false),
+  declared("trivy", "Trivy Container & FS Scanner", "LOW", ["container-scan", "dependency-scan", "fs-scan"], "Container/dependency/filesystem scanning. Adapter not implemented yet.", false),
   declared("zap", "OWASP ZAP Dynamic API Tester", "HIGH", ["dast"], "Dynamic web application testing. Adapter not implemented yet."),
   declared("prowler", "Prowler Cloud Security Auditing", "MEDIUM", ["cloud-audit"], "Cloud posture auditing. Adapter not implemented yet."),
-  declared("volatility", "Volatility Memory Forensics Engine", "LOW", ["memory-forensics"], "Memory image forensics. Adapter not implemented yet."),
+  declared("volatility", "Volatility Memory Forensics Engine", "LOW", ["memory-forensics"], "Memory image forensics. Adapter not implemented yet.", false),
 ];
 
 const adapters = new Map<string, ToolAdapter>(ADAPTERS.map((a) => [a.descriptor.id, a]));

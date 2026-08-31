@@ -112,6 +112,20 @@ The platform will not report a success that did not happen.
   `retestStatus: "UNVERIFIED"` and confidence `0`. Only findings produced by a
   real tool run are presented as observed.
 
+### Sandbox isolation
+Every containerized tool run gets:
+
+- a **dedicated internal bridge network** (`SANDBOX_NETWORK_NAME`), never the
+  host's shared default bridge. The network is `internal` unless
+  `SANDBOX_ALLOW_EGRESS=true`, so a scanner cannot route off the lab;
+- **no network at all** for offline tools (`semgrep`, `trivy`, `volatility`);
+- a **read-only root filesystem** with a single `tmpfs` scratch mount at
+  `/tmp/cyberguard` (`noexec,nosuid,64m`) that dies with the container;
+- **all Linux capabilities dropped**, `no-new-privileges`, non-privileged,
+  private IPC, no bind mounts and **no host Docker socket**;
+- CPU / memory (with no swap headroom) / pid ceilings and a wall-clock timeout
+  taken from the tool's own descriptor — a caller cannot widen them.
+
 ### Risk policy & human approval
 Risk is read from the tool registry — never from a name list, a request body, or
 a model. `src/server/security/policy.ts` maps it to what the platform will do:
