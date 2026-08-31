@@ -221,6 +221,20 @@ made.
 
 ---
 
+## 🖥️ What the UI shows
+
+The dashboard reflects backend truth rather than a static catalog:
+
+| Page | Source | What it will not do |
+|---|---|---|
+| **Tool Registry** | `GET /api/tools/health` | show a tool as usable without a verified adapter, reachable sandbox and present image; `imagePresent: null` renders as "not checked", never as "no" |
+| **Findings** | `GET /api/findings` | present severity as a verdict — severity is the tool's claim, verification status is the platform's, and the validator's rationale, false-positive risks and missing evidence are shown |
+| **Approvals** | `GET /api/approvals` | send a `decidedBy` (the server uses the authenticated principal) or re-show a granted token, which is displayed once and burned on use |
+| **Agents mesh** | `GET /api/agents` | render the twelve-agent catalog as live — each card is labelled `EXECUTABLE` or `NOT IMPLEMENTED` |
+| **Error Recovery** | `GET /api/error-recovery/events` | claim a retry happened — it is labelled `DIAGNOSIS ONLY` and reports `RECOVERY_PROPOSED` |
+
+---
+
 ## 🗄️ Persistence, identity and the audit chain
 
 ### Backends
