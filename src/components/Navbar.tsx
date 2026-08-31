@@ -11,7 +11,9 @@ import {
   Globe,
   Cpu,
   Lock,
-  RotateCcw
+  RotateCcw,
+  Bug,
+  KeyRound
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -35,14 +37,33 @@ export const Navbar: React.FC<NavbarProps> = ({
       labelAr: 'منسق الوكلاء (Orchestrator)',
       labelEn: 'AI Orchestrator',
       icon: Cpu,
-      badge: '12 Agents',
+      badge: '4 live',
     },
     {
       id: 'recovery',
       labelAr: 'تصحيح الأخطاء (Error Recovery)',
       labelEn: 'Safe Retry & Recovery',
       icon: RotateCcw,
-      badge: 'Self-Healing',
+      badge: 'Diagnostics',
+    },
+    {
+      id: 'tools',
+      labelAr: 'سجل الأدوات وحالتها',
+      labelEn: 'Tool Registry',
+      icon: Wrench,
+      badge: 'Verified',
+    },
+    {
+      id: 'findings',
+      labelAr: 'النتائج والتحقق',
+      labelEn: 'Findings',
+      icon: Bug,
+    },
+    {
+      id: 'approvals',
+      labelAr: 'الموافقات البشرية',
+      labelEn: 'Approvals',
+      icon: KeyRound,
     },
     {
       id: 'gateway',
@@ -56,7 +77,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       labelAr: 'المساعد الأمني الذكي',
       labelEn: 'AI Mentor Chat',
       icon: Bot,
-      badge: 'Gemini 3.7',
     },
     {
       id: 'auditor',

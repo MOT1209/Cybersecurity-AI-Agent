@@ -15,6 +15,9 @@ import { KnowledgeBase } from './components/KnowledgeBase';
 import { CtfArena } from './components/CtfArena';
 import { ReportBuilder } from './components/ReportBuilder';
 import { ErrorRecoveryCenter } from './components/ErrorRecoveryCenter';
+import { ToolRegistry } from './components/ToolRegistry';
+import { FindingsExplorer } from './components/FindingsExplorer';
+import { ApprovalsCenter } from './components/ApprovalsCenter';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CTFScenario } from './types';
 import { Shield } from 'lucide-react';
@@ -62,6 +65,9 @@ export default function App() {
         <ErrorBoundary language={language} resetKey={activeTab}>
           {activeTab === 'orchestrator' && <OrchestratorDashboard language={language} />}
           {activeTab === 'recovery' && <ErrorRecoveryCenter language={language} />}
+          {activeTab === 'tools' && <ToolRegistry language={language} />}
+          {activeTab === 'findings' && <FindingsExplorer language={language} />}
+          {activeTab === 'approvals' && <ApprovalsCenter language={language} />}
           {activeTab === 'gateway' && <SecurityGatewayManager language={language} />}
           {activeTab === 'agent' && (
             <AgentWorkspace

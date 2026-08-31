@@ -12,17 +12,23 @@
 
 import fs from "fs/promises";
 import path from "path";
-import { fileURLToPath } from "url";
 import { createHash } from "crypto";
 import type { PgPool } from "./postgres";
 
-function migrationsDir(): string {
-  // Works under tsx (ESM) and after esbuild bundling to CJS.
-  const here =
-    typeof __dirname !== "undefined"
-      ? __dirname
-      : path.dirname(fileURLToPath(import.meta.url));
-  return path.join(here, "migrations");
+/**
+ * Where the .sql files live, resolved from the working directory rather than
+ * from the module's own location.
+ *
+ * The build bundles the server into a single dist/server.cjs and does NOT copy
+ * the .sql files, so a module-relative path would resolve to a directory that
+ * does not exist in production. Migrations are repo data, and both `npm run
+ * dev` and `npm start` run from the repo root. MIGRATIONS_DIR overrides this
+ * for a deployment that relocates them.
+ */
+export function migrationsDir(): string {
+  const override = process.env.MIGRATIONS_DIR?.trim();
+  if (override) return path.resolve(override);
+  return path.join(process.cwd(), "src", "server", "database", "migrations");
 }
 
 export interface MigrationResult {
