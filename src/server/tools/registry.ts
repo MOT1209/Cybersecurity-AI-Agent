@@ -17,6 +17,8 @@ import { z } from "zod";
 import type { ToolAdapter, ToolDescriptor, RiskLevel } from "./types";
 import { DEFAULT_RESOURCE_LIMITS } from "./types";
 import { nmapAdapter } from "./nmap";
+import { subfinderAdapter } from "./subfinder";
+import { nucleiAdapter } from "./nuclei";
 
 /** Declared-but-unimplemented tools, surfaced honestly to the UI and API. */
 function declared(
@@ -44,11 +46,9 @@ function declared(
   };
 }
 
-const ADAPTERS: ToolAdapter[] = [nmapAdapter];
+const ADAPTERS: ToolAdapter[] = [nmapAdapter, subfinderAdapter, nucleiAdapter];
 
 const DECLARED: ToolDescriptor[] = [
-  declared("subfinder", "Subfinder Subdomain Recon", "LOW", ["subdomain-enumeration"], "Passive subdomain discovery. Adapter not implemented yet."),
-  declared("nuclei", "Nuclei Vulnerability Engine", "MEDIUM", ["template-scanning"], "Template-driven vulnerability detection. Adapter not implemented yet."),
   declared("semgrep", "Semgrep SAST Code Engine", "LOW", ["static-analysis"], "Static application security testing. Adapter not implemented yet.", false),
   declared("trivy", "Trivy Container & FS Scanner", "LOW", ["container-scan", "dependency-scan", "fs-scan"], "Container/dependency/filesystem scanning. Adapter not implemented yet.", false),
   declared("zap", "OWASP ZAP Dynamic API Tester", "HIGH", ["dast"], "Dynamic web application testing. Adapter not implemented yet."),

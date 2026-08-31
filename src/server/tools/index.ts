@@ -9,5 +9,7 @@
 
 export * from "./types";
 export * from "./nmap";
+export * from "./subfinder";
+export * from "./nuclei";
 export * from "./registry";
 export * from "./health";

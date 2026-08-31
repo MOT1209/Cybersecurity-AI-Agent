@@ -19,8 +19,7 @@ import {
 } from "./src/server/core/index";
 import { executeTool, GatewayDeniedError, ApprovalRequiredError } from "./src/server/sandbox/index";
 import { ToolNotAvailableError, ToolNotRegisteredError } from "./src/server/core/errors";
-import { buildNmapRequest, summarizeNmapResult, NMAP_TOOL_ID } from "./src/server/tools/index";
-import { listTools } from "./src/server/tools/registry";
+import { listTools, getToolAdapter } from "./src/server/tools/registry";
 import { checkAllToolHealth, checkToolHealth } from "./src/server/tools/health";
 import { agentManager } from "./src/server/agents/index";
 import { listEvents } from "./src/server/core/events";
@@ -386,22 +385,26 @@ export async function createApp() {
     const { toolId, target = "192.168.1.50", params = {}, projectId = "proj_alpha_lab", approvalToken } = req.body;
 
     try {
+      // Generic adapter dispatch: whichever adapter the registry holds for this
+      // tool validates the params, builds the argv and parses the output. There
+      // is no per-tool branching and no silent path for an unknown tool.
+      const adapter = getToolAdapter(toolId);
       let executionResult;
-      if (toolId === NMAP_TOOL_ID) {
-        // Real nmap adapter: validated params, containerized scan, parsed ports.
-        const nmapReq = buildNmapRequest(target, params);
+      if (adapter) {
+        const built = adapter.build(target, params);
         const raw = await executeTool({
-          toolId: NMAP_TOOL_ID,
-          target,
-          args: nmapReq.args,
-          image: nmapReq.image,
-          params: nmapReq.params,
+          toolId,
+          target: built.target,
+          args: built.args,
+          image: built.image,
+          params: built.params,
           projectId,
           approvalToken,
         });
-        executionResult = summarizeNmapResult(raw);
+        executionResult = adapter.parse(raw);
       } else {
-        // Tools without a dedicated adapter run in the simulation executor.
+        // Registered but unimplemented: executeTool raises NOT_AVAILABLE unless
+        // simulation was explicitly opted into.
         executionResult = await executeTool({ toolId, target, params, projectId, approvalToken });
       }
       return res.json(executionResult);
