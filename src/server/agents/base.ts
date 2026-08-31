@@ -9,6 +9,7 @@
 
 import { generateJSON, wrapUserInput } from "../llm/index";
 import type { ToolRunResult } from "../sandbox/types";
+import type { AgentDescriptor, AgentRunContext } from "./types";
 
 export interface AgentTask {
   id: string;
@@ -37,6 +38,12 @@ export interface AgentResult<T> {
 export abstract class BaseAgent {
   abstract readonly id: string;
 
+  /** Published contract (§5) used by the Agent Manager for enforcement. */
+  abstract describe(): AgentDescriptor;
+
+  /** Execute a task. `ctx` carries the trace id, project and cancellation. */
+  abstract run(input: never, ctx?: AgentRunContext): Promise<unknown>;
+
   private memory: AgentTask[] = [];
   protected toolCalls: ToolCallRecord[] = [];
 
@@ -48,12 +55,31 @@ export abstract class BaseAgent {
       startedAt: new Date().toISOString(),
     };
     this.memory.unshift(task);
-    if (this.memory.length > 3) this.memory.pop();
+    const cap = this.describe().memoryPolicy.maxTasks;
+    while (this.memory.length > cap) this.memory.pop();
     return task;
   }
 
-  protected recentContext(): AgentTask[] {
+  /** Observation surface: the agent's recent task memory. */
+  observe(): AgentTask[] {
     return [...this.memory];
+  }
+
+  /** Report surface: the agent's tool-call log for this instance. */
+  report(): ToolCallRecord[] {
+    return [...this.toolCalls];
+  }
+
+  /**
+   * Validate a produced result against the agent's declared output schema.
+   * Returns the parse outcome rather than throwing, so a schema miss is a
+   * recorded low-confidence result instead of a crash.
+   */
+  validate(data: unknown): { valid: boolean; error?: string } {
+    const parsed = this.describe().outputSchema.safeParse(data);
+    return parsed.success
+      ? { valid: true }
+      : { valid: false, error: parsed.error.issues.map((i) => i.message).join("; ") };
   }
 
   /** Append a tool execution to this agent's call log. */

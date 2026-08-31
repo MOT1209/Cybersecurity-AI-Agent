@@ -23,9 +23,15 @@ export class LocalSimExecutor implements ToolExecutor {
     const containerId = `sbx_${Math.random().toString(36).substring(2, 8)}`;
     const argLine = req.args.length ? ` ${req.args.join(" ")}` : "";
     const rawOutput =
-      `[+] CyberGuard Sandbox (SIMULATED) executing ${req.toolId}${argLine} against ${req.target}...\n` +
-      `[+] Container ${containerId} started with isolated bridge network.\n` +
-      `[+] Task completed with 0 errors.`;
+      `!! SIMULATED — NOT A REAL RESULT. No ${req.toolId} process was executed and
+` +
+      `!! no packet reached ${req.target}. This output exists only because
+` +
+      `!! SANDBOX_MODE=simulate was set explicitly. Do not treat it as evidence.
+` +
+      `[sim] would run: ${req.toolId}${argLine} ${req.target}
+` +
+      `[sim] pseudo-container ${containerId} (no container was created).`;
 
     return {
       toolId: req.toolId,

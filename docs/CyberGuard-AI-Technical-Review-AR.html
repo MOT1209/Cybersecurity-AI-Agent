@@ -1,0 +1,595 @@
+<title>مراجعة CyberGuard AI الفنية</title>
+<meta name="description" content="مراجعة فنية شاملة لمنصة CyberGuard AI — الحالة الحقيقية للكود، تقدّم المراحل، الوضع الأمني، والمخاطر والتوصيات." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
+
+<style>
+  /* ============ Tokens: light (bare :root) ============ */
+  :root {
+    --ground: #eef1f6;
+    --surface: #ffffff;
+    --surface-2: #f6f8fb;
+    --border: #d9e0ea;
+    --border-strong: #c2ccd9;
+    --ink: #15202e;
+    --ink-soft: #33465b;
+    --muted: #647689;
+    --faint: #8394a6;
+
+    --accent: #0e6f6e;        /* deep teal — chosen, not neon */
+    --accent-ink: #0a5453;
+    --accent-wash: #e2f1f0;
+    --signal: #2358d6;        /* signal blue for data/links */
+    --signal-wash: #e6edfb;
+
+    --good: #1f7a4d;
+    --good-wash: #e2f2ea;
+    --warn: #a1650a;
+    --warn-wash: #f8eedd;
+    --crit: #b5342b;
+    --crit-wash: #f8e3e1;
+    --info: #4a5b6e;
+    --info-wash: #e9edf2;
+
+    --shadow: 0 1px 2px rgba(21,32,46,.06), 0 8px 24px rgba(21,32,46,.06);
+    --radius: 12px;
+
+    --display: "Readex Pro", "IBM Plex Sans Arabic", system-ui, sans-serif;
+    --body: "IBM Plex Sans Arabic", system-ui, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", monospace;
+  }
+  /* ============ Tokens: dark via OS (un-stamped) ============ */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0c1219;
+      --surface: #131c26;
+      --surface-2: #182430;
+      --border: #26333f;
+      --border-strong: #33434f;
+      --ink: #e7eef5;
+      --ink-soft: #c2cedb;
+      --muted: #8 b9aab;
+      --muted: #8b9aab;
+      --faint: #647689;
+
+      --accent: #2bb7ad;
+      --accent-ink: #57d4ca;
+      --accent-wash: #10322f;
+      --signal: #5b8def;
+      --signal-wash: #16253f;
+
+      --good: #43b782;
+      --good-wash: #123123;
+      --warn: #d69b3f;
+      --warn-wash: #33270f;
+      --crit: #e5695e;
+      --crit-wash: #331917;
+      --info: #9aabbd;
+      --info-wash: #1b2733;
+
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  /* ============ Tokens: dark via explicit toggle ============ */
+  :root[data-theme="dark"] {
+    --ground: #0c1219;
+    --surface: #131c26;
+    --surface-2: #182430;
+    --border: #26333f;
+    --border-strong: #33434f;
+    --ink: #e7eef5;
+    --ink-soft: #c2cedb;
+    --muted: #8b9aab;
+    --faint: #647689;
+
+    --accent: #2bb7ad;
+    --accent-ink: #57d4ca;
+    --accent-wash: #10322f;
+    --signal: #5b8def;
+    --signal-wash: #16253f;
+
+    --good: #43b782;
+    --good-wash: #123123;
+    --warn: #d69b3f;
+    --warn-wash: #33270f;
+    --crit: #e5695e;
+    --crit-wash: #331917;
+    --info: #9aabbd;
+    --info-wash: #1b2733;
+
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    direction: rtl;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px 96px; }
+
+  /* ---- code / data ---- */
+  code, .mono { font-family: var(--mono); font-size: .88em; direction: ltr; unicode-bidi: embed; }
+  code {
+    background: var(--surface-2); border: 1px solid var(--border);
+    padding: .08em .38em; border-radius: 6px; color: var(--accent-ink);
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ============ Header ============ */
+  header.masthead {
+    position: relative; overflow: hidden;
+    background:
+      radial-gradient(120% 140% at 100% 0%, var(--accent-wash) 0%, transparent 55%),
+      linear-gradient(180deg, var(--surface) 0%, var(--surface) 100%);
+    border-bottom: 1px solid var(--border);
+  }
+  .mast-grid {
+    position: absolute; inset: 0; opacity: .5; pointer-events: none;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 34px 34px;
+    -webkit-mask-image: radial-gradient(80% 90% at 90% 0%, #000, transparent 70%);
+    mask-image: radial-gradient(80% 90% at 90% 0%, #000, transparent 70%);
+  }
+  .mast-inner { max-width: 920px; margin: 0 auto; padding: 30px 20px 34px; position: relative; }
+  .brandrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .shield {
+    width: 40px; height: 40px; flex: none;
+    display: grid; place-items: center;
+    color: var(--accent);
+  }
+  .kicker {
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-ink); direction: ltr;
+  }
+  h1 {
+    font-family: var(--display); font-weight: 700;
+    font-size: clamp(1.9rem, 4.6vw, 2.9rem); line-height: 1.15;
+    margin: 14px 0 8px; letter-spacing: -0.01em; text-wrap: balance;
+  }
+  h1 .tm { color: var(--accent); }
+  .dek { color: var(--ink-soft); font-size: 1.06rem; max-width: 62ch; margin: 0; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 6px 12px; font-size: .82rem; color: var(--ink-soft);
+    box-shadow: var(--shadow);
+  }
+  .chip b { color: var(--ink); font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .dot.g { background: var(--good); } .dot.a { background: var(--accent); }
+  .dot.b { background: var(--signal); } .dot.w { background: var(--warn); }
+
+  .themebtn {
+    position: absolute; top: 22px; inset-inline-start: 20px;
+    background: var(--surface); color: var(--ink-soft);
+    border: 1px solid var(--border); border-radius: 999px;
+    width: 38px; height: 38px; cursor: pointer; font-size: 1rem;
+    display: grid; place-items: center; box-shadow: var(--shadow);
+  }
+  .themebtn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ============ Sections ============ */
+  section { margin-top: 46px; }
+  .eyebrow {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent-ink); direction: ltr;
+    justify-content: flex-start;
+  }
+  .eyebrow .en { direction: ltr; }
+  .eyebrow::after { content: ""; height: 1px; background: var(--border); flex: 1; }
+  h2 {
+    font-family: var(--display); font-weight: 600;
+    font-size: clamp(1.35rem, 2.8vw, 1.7rem); margin: 12px 0 6px;
+    letter-spacing: -0.01em; text-wrap: balance;
+  }
+  h3 { font-family: var(--display); font-weight: 600; font-size: 1.06rem; margin: 22px 0 8px; }
+  p { margin: 0 0 14px; max-width: 68ch; }
+  .lead { font-size: 1.08rem; color: var(--ink-soft); }
+  a { color: var(--signal); text-decoration-color: color-mix(in oklab, var(--signal) 40%, transparent); text-underline-offset: 3px; }
+
+  /* cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px,1fr)); gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .card .lbl { font-family: var(--mono); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); direction: ltr; }
+  .card .big { font-family: var(--display); font-weight: 700; font-size: 2rem; margin: 4px 0 2px; letter-spacing: -.02em; }
+  .card .sub { font-size: .86rem; color: var(--muted); }
+  .card.accent { border-top: 3px solid var(--accent); }
+  .card.blue { border-top: 3px solid var(--signal); }
+  .card.good { border-top: 3px solid var(--good); }
+  .card.warn { border-top: 3px solid var(--warn); }
+
+  /* pills */
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .02em; direction: ltr;
+    padding: 3px 9px; border-radius: 999px; border: 1px solid transparent; font-weight: 500;
+  }
+  .pill.real  { background: var(--good-wash); color: var(--good); border-color: color-mix(in oklab, var(--good) 30%, transparent); }
+  .pill.part  { background: var(--warn-wash); color: var(--warn); border-color: color-mix(in oklab, var(--warn) 30%, transparent); }
+  .pill.sim   { background: var(--info-wash); color: var(--info); border-color: color-mix(in oklab, var(--info) 30%, transparent); }
+  .pill.crit  { background: var(--crit-wash); color: var(--crit); border-color: color-mix(in oklab, var(--crit) 30%, transparent); }
+  .pill.med   { background: var(--warn-wash); color: var(--warn); border-color: color-mix(in oklab, var(--warn) 30%, transparent); }
+  .pill.low   { background: var(--good-wash); color: var(--good); border-color: color-mix(in oklab, var(--good) 30%, transparent); }
+
+  /* table */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: .92rem; }
+  thead th {
+    text-align: right; font-family: var(--display); font-weight: 600; font-size: .82rem;
+    color: var(--muted); background: var(--surface-2);
+    padding: 11px 14px; border-bottom: 1px solid var(--border-strong); white-space: nowrap;
+  }
+  tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--ink-soft); }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody td:first-child { color: var(--ink); font-weight: 500; }
+  tbody tr:hover td { background: var(--surface-2); }
+
+  /* phase stepper */
+  .steps { display: flex; flex-direction: column; gap: 0; margin-top: 6px; }
+  .step {
+    display: grid; grid-template-columns: 44px 1fr; gap: 16px; padding: 14px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .step:last-child { border-bottom: 0; }
+  .stepnum {
+    width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+    font-family: var(--mono); font-weight: 600; font-size: 1.05rem; direction: ltr;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--muted);
+  }
+  .step.done .stepnum { background: var(--accent); color: #fff; border-color: var(--accent); }
+  :root[data-theme="dark"] .step.done .stepnum,
+  .step.done .stepnum { color: #04201f; }
+  .step.now .stepnum { background: var(--signal-wash); color: var(--signal); border-color: var(--signal); }
+  .step h4 { margin: 2px 0 3px; font-family: var(--display); font-weight: 600; font-size: 1.02rem; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .step p { margin: 0; font-size: .92rem; color: var(--muted); max-width: 66ch; }
+  .tag { font-family: var(--mono); font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; direction: ltr; }
+  .tag.done { background: var(--good-wash); color: var(--good); }
+  .tag.now  { background: var(--signal-wash); color: var(--signal); }
+  .tag.next { background: var(--info-wash); color: var(--info); }
+
+  /* callout */
+  .callout {
+    border: 1px solid var(--border); border-inline-start: 4px solid var(--accent);
+    background: var(--surface); border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .callout.warn { border-inline-start-color: var(--warn); }
+  .callout.crit { border-inline-start-color: var(--crit); }
+  .callout .h { font-family: var(--display); font-weight: 600; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .callout p { margin: 0; font-size: .93rem; color: var(--ink-soft); }
+
+  /* two-col */
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 640px) { .two { grid-template-columns: 1fr; } }
+
+  ul.clean { margin: 0 0 14px; padding: 0 18px 0 0; }
+  ul.clean li { margin: 0 0 8px; color: var(--ink-soft); }
+  ul.clean li::marker { color: var(--accent); }
+
+  .flow {
+    display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; direction: rtl;
+    font-family: var(--mono); font-size: .8rem; direction: ltr;
+  }
+  .flow .node {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
+    padding: 8px 11px; box-shadow: var(--shadow); white-space: nowrap;
+  }
+  .flow .node.real { border-color: color-mix(in oklab, var(--good) 45%, var(--border)); }
+  .flow .arr { align-self: center; color: var(--faint); font-weight: 700; }
+
+  footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--muted); font-size: .85rem; }
+  footer .mono { color: var(--faint); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .card, .chip { transition: border-color .2s ease, transform .2s ease; }
+  }
+  :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+</style>
+
+<header class="masthead">
+  <div class="mast-grid" aria-hidden="true"></div>
+  <button class="themebtn" id="themeToggle" type="button" aria-label="تبديل الوضع الفاتح/الداكن">◐</button>
+  <div class="mast-inner">
+    <div class="brandrow">
+      <span class="shield" aria-hidden="true">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2.5 4.5 5.5v5.4c0 4.4 3.1 8.4 7.5 9.6 4.4-1.2 7.5-5.2 7.5-9.6V5.5L12 2.5Z"/>
+          <path d="m9 12 2 2 4-4.5"/>
+        </svg>
+      </span>
+      <span class="kicker">Technical Review · مراجعة فنية</span>
+    </div>
+    <h1>مراجعة <span class="tm">CyberGuard&nbsp;AI</span> الفنية</h1>
+    <p class="dek">تقييم صادق للحالة الحالية للمنصّة: ما الذي أصبح تنفيذاً حقيقياً، وما الذي لا يزال محاكاةً، وأين تقف الاختبارات والأمان، وما الخطوات ذات الأولوية.</p>
+    <div class="chips">
+      <span class="chip"><span class="dot g"></span><b class="num">33</b> اختباراً تمرّ</span>
+      <span class="chip"><span class="dot a"></span><code>tsc</code> نظيف</span>
+      <span class="chip"><span class="dot b"></span>المراحل <b>0–2</b> منجزة</span>
+      <span class="chip"><span class="dot w"></span><b>6</b> مخاطر مفتوحة</span>
+      <span class="chip">آخر commit <code>d03e1d8</code></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ===== Executive summary ===== -->
+  <section id="summary" style="margin-top:38px">
+    <div class="eyebrow"><span class="en">01 · Executive Summary</span></div>
+    <h2>الملخّص التنفيذي</h2>
+    <p class="lead">CyberGuard AI منصّة تدريب واختبار اختراق متعددة الوكلاء (React + خادم Express بلغة TypeScript). خلال هذه الجولة انتقل قلب المنصّة من <em>محاكاة معروضة في الواجهة</em> إلى <em>تنفيذ حقيقي مُختبَر</em> في الطبقات الأساسية، مع الحفاظ على مبدأَي «لا شيء خارج الحاوية المعزولة» و«تدرّج آمن دائم».</p>
+    <div class="cards" style="margin-top:18px">
+      <div class="card accent">
+        <div class="lbl">Real now</div>
+        <div class="big num" style="color:var(--accent)">3</div>
+        <div class="sub">طبقات أصبحت حقيقية: LLM متعدد المزودين، تنفيذ Docker معزول، ووكيل Recon يشغّل nmap فعلياً.</div>
+      </div>
+      <div class="card blue">
+        <div class="lbl">Refactor</div>
+        <div class="big num" style="color:var(--signal)">785</div>
+        <div class="sub">سطراً في <code>server.ts</code> بعد تفكيكه من <span class="num">1512</span> — الطبقات المشتركة انتقلت إلى وحدات نظيفة.</div>
+      </div>
+      <div class="card good">
+        <div class="lbl">Tests</div>
+        <div class="big num" style="color:var(--good)">33</div>
+        <div class="sub">اختباراً عبر <span class="num">5</span> ملفات، جميعها خضراء، مع فحص أنواع نظيف و CI على bun.</div>
+      </div>
+      <div class="card warn">
+        <div class="lbl">Open risk</div>
+        <div class="big num" style="color:var(--warn)">6</div>
+        <div class="sub">مخاطر مفتوحة أبرزها بوابة أمان قابلة للتجاوز، وغياب التخزين الدائم.</div>
+      </div>
+    </div>
+
+    <div class="two" style="margin-top:18px">
+      <div class="callout">
+        <p class="h">✓ أهم ما يُطمئن</p>
+        <p>الأساس المعماري سليم: طبقة مزودين مع تدرّج محلي، عزل حاويات صارم، حماية حقن مركزية، ومصادقة وحدود معدّل — وكلها مغطّاة باختبارات.</p>
+      </div>
+      <div class="callout warn">
+        <p class="h">⚠ أهم ما يستحق الانتباه</p>
+        <p>معظم الوكلاء الاثني عشر ومحرّك التقارير والتعلّم لا تزال قوالب/محاكاة. البوابة تعتمد مطابقة نصية بسيطة قابلة للتجاوز، ولا يوجد تخزين دائم بعد.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Architecture ===== -->
+  <section id="arch">
+    <div class="eyebrow"><span class="en">02 · Architecture</span></div>
+    <h2>المعمارية الحالية</h2>
+    <p>واجهة SPA (React 19 + Vite) تتحدث إلى خادم Express واحد عبر <code>src/lib/api.ts</code> الذي يحقن ترويسة <code>x-api-key</code>. الطبقة الخلفية الجديدة نُظّمت في <span class="num">21</span> ملف TypeScript تحت <code>src/server/</code> موزّعة على ست وحدات:</p>
+
+    <div class="tablewrap" style="margin:16px 0 20px">
+      <table>
+        <thead><tr><th>الوحدة</th><th>المسؤولية</th><th>الحالة</th></tr></thead>
+        <tbody>
+          <tr><td><code>llm/</code></td><td>طبقة مزودين (Claude · Gemini · Local) + <code>wrapUserInput</code> لحماية الحقن + تدرّج تلقائي</td><td><span class="pill real">REAL</span></td></tr>
+          <tr><td><code>core/</code></td><td>مخازن الحالة، تحقّق المدخلات، بوابة الأمان، ومحرّك التعافي من الأخطاء</td><td><span class="pill real">REAL</span></td></tr>
+          <tr><td><code>sandbox/</code></td><td>واجهة تنفيذ قابلة للتبديل: <code>DockerExecutor</code> معزول + <code>LocalSimExecutor</code> احتياطي</td><td><span class="pill real">REAL</span></td></tr>
+          <tr><td><code>tools/</code></td><td>محوّل <code>nmap</code> (تحقّق Zod + تحليل المنافذ) — نمط تُبنى عليه بقية الأدوات</td><td><span class="pill part">PARTIAL</span></td></tr>
+          <tr><td><code>agents/</code></td><td><code>BaseAgent</code> + وكيل Recon الحقيقي (ذاكرة سياق، سجل أدوات، تدرّج)</td><td><span class="pill part">PARTIAL</span></td></tr>
+          <tr><td><code>orchestrator/</code></td><td><code>runMission</code>: يشغّل Recon فعلياً ثم يركّب البقية عبر LLM + قالب احتياطي</td><td><span class="pill part">PARTIAL</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>مسار الطلب أثناء مهمة</h3>
+    <div class="flow" aria-label="مسار الطلب">
+      <span class="node">SPA</span><span class="arr">→</span>
+      <span class="node">Express API</span><span class="arr">→</span>
+      <span class="node">Security Gateway</span><span class="arr">→</span>
+      <span class="node real">Recon Agent</span><span class="arr">→</span>
+      <span class="node real">Sandbox (nmap)</span><span class="arr">→</span>
+      <span class="node">LLM Synthesis</span><span class="arr">→</span>
+      <span class="node">Plan + Findings</span>
+    </div>
+    <p style="margin-top:12px; font-size:.9rem; color:var(--muted)">العُقد الخضراء تنفيذ حقيقي؛ خطوة التركيب تستخدم النموذج الحيّ إن توفّر، وإلا تتدرّج إلى قالب حتمي.</p>
+  </section>
+
+  <!-- ===== Real vs simulated ===== -->
+  <section id="matrix">
+    <div class="eyebrow"><span class="en">03 · Reality Check</span></div>
+    <h2>المنجَز الحقيقي مقابل المحاكى</h2>
+    <p>أهم قسم في هذه المراجعة: تمييز صريح بين ما يعمل فعلاً وما لا يزال عرضاً تقديمياً — حتى لا يُبنى قرار على واجهة تبدو مكتملة.</p>
+    <div class="tablewrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>القدرة</th><th>الحالة</th><th>التفاصيل</th></tr></thead>
+        <tbody>
+          <tr><td>طبقة LLM متعددة المزودين</td><td><span class="pill real">حقيقي</span></td><td>Claude/Gemini/Local مع تدرّج، مستهلَكة الآن من الـ orchestrator ووكيل Recon لا من مسار واحد.</td></tr>
+          <tr><td>تنفيذ الأدوات في حاوية معزولة</td><td><span class="pill real">حقيقي</span></td><td>عبر <code>dockerode</code>؛ استُبدل <code>Math.random()</code> الوهمي القديم بحاوية فعلية.</td></tr>
+          <tr><td>وكيل Recon (nmap)</td><td><span class="pill real">حقيقي</span></td><td>فحص TCP connect حقيقي، تحليل المنافذ، ثم تلخيص عبر LLM مع تدرّج محلي.</td></tr>
+          <tr><td>بوابة الأمان + سجل التدقيق</td><td><span class="pill real">حقيقي</span></td><td>تُنفَّذ قبل كل تشغيل؛ السجل يخزّن <code>outputHash</code> (sha256) للتتبّع.</td></tr>
+          <tr><td>Orchestrator متعدد الوكلاء</td><td><span class="pill part">جزئي</span></td><td>Recon حقيقي؛ بقية الوكلاء تُركَّب عبر LLM/قالب لا بأدوات فعلية بعد.</td></tr>
+          <tr><td>وكلاء Web/Vuln/Code/Cloud… (11)</td><td><span class="pill sim">محاكى</span></td><td>لا تملك أدوات حقيقية (nuclei/semgrep/trivy…) بعد — مخطّطة للمراحل التالية.</td></tr>
+          <tr><td>محرّك التقارير (PDF/SARIF/STIX)</td><td><span class="pill sim">محاكى</span></td><td><code>/api/gemini/generate-report</code> قالبي بالتصميم ولا يستدعي نموذجاً.</td></tr>
+          <tr><td>المسارات التعليمية · CTF · Mentor</td><td><span class="pill sim">محاكى</span></td><td>واجهة وبيانات ثابتة فقط؛ لا خلفية حقيقية بعد.</td></tr>
+          <tr><td>التخزين الدائم (DB)</td><td><span class="pill sim">غائب</span></td><td>كل الحالة في الذاكرة؛ تُفقد عند إعادة التشغيل.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== Phase progress ===== -->
+  <section id="phases">
+    <div class="eyebrow"><span class="en">04 · Roadmap Progress</span></div>
+    <h2>تقدّم المراحل</h2>
+    <p>خطة من ثماني مراحل تحوّل المحاكاة إلى تنفيذ حقيقي تدريجياً. الترقيم هنا تسلسل فعلي: كل مرحلة تفتح ما بعدها.</p>
+    <div class="steps" style="margin-top:10px">
+      <div class="step done">
+        <div class="stepnum">0</div>
+        <div><h4>إعادة الهيكلة الأساسية <span class="tag done">منجز · 21a15c0</span></h4>
+        <p>تفكيك <code>server.ts</code> العملاق إلى <code>src/server/core/</code> (تحقّق، مخازن، بوابة) وإضافة <code>outputHash</code> للتتبّع.</p></div>
+      </div>
+      <div class="step done">
+        <div class="stepnum">1</div>
+        <div><h4>طبقة التنفيذ الحقيقية + وكيل Recon <span class="tag done">منجز · 7d7be9e</span></h4>
+        <p>واجهة <code>ToolExecutor</code> قابلة للتبديل، عزل Docker صارم، محوّل nmap، ونمط <code>BaseAgent</code>.</p></div>
+      </div>
+      <div class="step done">
+        <div class="stepnum">2</div>
+        <div><h4>Orchestrator حقيقي <span class="tag done">منجز · d03e1d8</span></h4>
+        <p><code>runMission</code> يشغّل Recon فعلياً ثم يركّب الملخّص والثغرات عبر طبقة المزودين مع قالب احتياطي.</p></div>
+      </div>
+      <div class="step now">
+        <div class="stepnum">3</div>
+        <div><h4>محرّك التقارير الحقيقي <span class="tag now">التالي</span></h4>
+        <p>مولّدات HTML/SARIF/JSON مع مصفوفة تتبّع تربط كل نتيجة بـ <code>outputHash</code> من سجل التدقيق.</p></div>
+      </div>
+      <div class="step">
+        <div class="stepnum">4</div>
+        <div><h4>النواة التعليمية <span class="tag next">مخطّط</span></h4>
+        <p>محرّك مسارات، خلفية CTF ديناميكية، ووضع Mentor فوق طبقة المزودين.</p></div>
+      </div>
+      <div class="step">
+        <div class="stepnum">5</div>
+        <div><h4>التكاملات <span class="tag next">مخطّط</span></h4>
+        <p>Jira/GitHub · Slack · إثراء VirusTotal/OTX — كلٌّ خلف مفتاح بيئة وبفشل آمن.</p></div>
+      </div>
+      <div class="step">
+        <div class="stepnum">6</div>
+        <div><h4>المجتمع + Multiplayer <span class="tag next">مخطّط</span></h4>
+        <p>ملفات تعريف، مشاركة تقدّم، منافسات CTF — تعتمد على قاعدة البيانات.</p></div>
+      </div>
+      <div class="step">
+        <div class="stepnum">7</div>
+        <div><h4>المؤسسات + التخزين الدائم <span class="tag next">مخطّط</span></h4>
+        <p>استبدال الذاكرة بـ PostgreSQL + Drizzle، ثم Multi-tenancy وRBAC وSSO.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Security ===== -->
+  <section id="security">
+    <div class="eyebrow"><span class="en">05 · Security Posture</span></div>
+    <h2>الوضع الأمني</h2>
+    <p>البنية الأمنية جادّة ومغطّاة باختبارات، لكن فيها فجوات معروفة يجب ألا تُنسى قبل أي استخدام خارج المختبر.</p>
+
+    <h3>ضوابط قائمة وفعّالة</h3>
+    <div class="cards">
+      <div class="card">
+        <div class="lbl">Sandbox isolation</div>
+        <div class="sub" style="margin-top:6px">حاوية بـ <code>CapDrop: ALL</code>، جذر للقراءة فقط، <code>no-new-privileges</code>، حدّ 1 CPU / 512MB، ومهلة قسرية 60 ثانية.</div>
+      </div>
+      <div class="card">
+        <div class="lbl">Prompt injection</div>
+        <div class="sub" style="margin-top:6px">كل إدخال غير موثوق يُغلَّف بـ <code>wrapUserInput</code> ويُعامَل كبيانات لا تعليمات، مركزياً في طبقة المزودين.</div>
+      </div>
+      <div class="card">
+        <div class="lbl">Auth &amp; rate limits</div>
+        <div class="sub" style="margin-top:6px">مصادقة <code>x-api-key</code> على كل <code>/api</code>، وحدّان: <span class="num">60</span>/15د عام و<span class="num">15</span>/15د للذكاء.</div>
+      </div>
+      <div class="card">
+        <div class="lbl">Audit trail</div>
+        <div class="sub" style="margin-top:6px">كل تنفيذ يُسجَّل مع <code>outputHash</code> (sha256) للمخرجات — أساس تتبّع النتائج في التقارير.</div>
+      </div>
+    </div>
+
+    <h3>فجوات أمنية مفتوحة</h3>
+    <div class="two">
+      <div class="callout crit">
+        <p class="h">⛌ بوابة قابلة للتجاوز</p>
+        <p><code>validateSecurityGateway</code> تعتمد <code>String.includes</code> للنطاق؛ يمكن خداعها بسلاسل فرعية (مثل نطاق يحتوي كلمة مسموحة). تحتاج تحليل مضيف/شبكة صارماً.</p>
+      </div>
+      <div class="callout warn">
+        <p class="h">⚠ موافقة بشرية بلا إنفاذ</p>
+        <p>الأدوات عالية الخطورة تُعلَّم بـ <code>humanApprovalRequired</code> لكن لا يوجد إنفاذ فعلي يوقف التنفيذ بانتظار الموافقة.</p>
+      </div>
+      <div class="callout warn">
+        <p class="h">⚠ لا تخزين دائم</p>
+        <p>سجلّات التدقيق والنتائج في الذاكرة فقط؛ تُفقد عند إعادة التشغيل، ما يضعف قابلية التدقيق طويل الأمد.</p>
+      </div>
+      <div class="callout crit">
+        <p class="h">⛌ مفاتيح محروقة سابقاً</p>
+        <p>تاريخياً تسرّبت مفاتيح API في مواضع أخرى للمستخدم؛ يجب تأكيد تدوير كل المفاتيح وعدم إيداع أي سرّ في الكود.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Quality ===== -->
+  <section id="quality">
+    <div class="eyebrow"><span class="en">06 · Quality &amp; Tests</span></div>
+    <h2>الجودة والاختبارات</h2>
+    <p>كل مرحلة أضافت اختباراتها وحافظت على خضرة ما سبق — انضباط جيّد يجب أن يستمر.</p>
+    <div class="tablewrap" style="margin-top:14px">
+      <table>
+        <thead><tr><th>ملف الاختبار</th><th>يغطّي</th></tr></thead>
+        <tbody>
+          <tr><td><code>core.test.ts</code></td><td>تحقّق المدخلات، <code>outputHash</code> في السجل، سماح/رفض البوابة</td></tr>
+          <tr><td><code>sandbox.test.ts</code></td><td>التنفيذ المعزول، رفض هدف خارج النطاق قبل أي spawn، محوّل nmap ووكيل Recon</td></tr>
+          <tr><td><code>orchestrator.test.ts</code></td><td>مهمة كاملة: Recon حقيقي + تدرّج القالب، وتمرير رفض البوابة</td></tr>
+          <tr><td><code>llm.test.ts</code></td><td>حلّ المزوّد، التدرّج المحلي، حدود <code>wrapUserInput</code></td></tr>
+          <tr><td><code>api.test.ts</code></td><td>صحّة، مصادقة المفتاح، تحقّق المدخلات، البوابة على مستوى الـ HTTP</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:14px">ملاحظة: الاختبارات تُجبِر <code>SANDBOX_MODE=local</code> و<code>AI_PROVIDER=local</code> لتكون حتمية دون شبكة أو Docker — تصميم جيّد للـ CI. لا توجد اختبارات واجهة (مكوّنات React) بعد.</p>
+
+    <div class="callout" style="margin-top:16px">
+      <p class="h">ℹ حالة مجلد العمل الآن</p>
+      <p>جلسة موازية أضافت إعداد <strong>ESLint</strong> ونظّفت استيرادات ميتة في <span class="num">11</span> مكوّناً — تغييرات <em>غير مثبّتة</em> بعد وتنتظر قرارك بتثبيتها (موصى بالإبقاء عليها؛ فحص الأنواع نظيف بعدها).</p>
+    </div>
+  </section>
+
+  <!-- ===== Risks & recommendations ===== -->
+  <section id="reco">
+    <div class="eyebrow"><span class="en">07 · Risks &amp; Recommendations</span></div>
+    <h2>المخاطر والتوصيات ذات الأولوية</h2>
+    <div class="tablewrap" style="margin-top:14px">
+      <table>
+        <thead><tr><th>#</th><th>الخطر</th><th>الأولوية</th><th>التوصية</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td>تجاوز بوابة النطاق</td><td><span class="pill crit">حرج</span></td><td>استبدال <code>String.includes</code> بتحليل مضيف/CIDR صارم مع قوائم سماح دقيقة.</td></tr>
+          <tr><td class="num">2</td><td>موافقة بلا إنفاذ</td><td><span class="pill crit">حرج</span></td><td>إيقاف تنفيذ الأدوات عالية الخطورة فعلياً حتى موافقة صريحة مُسجَّلة.</td></tr>
+          <tr><td class="num">3</td><td>غياب التخزين الدائم</td><td><span class="pill med">متوسط</span></td><td>تنفيذ المرحلة 7 مبكّراً جزئياً: PostgreSQL + Drizzle لسجل التدقيق والنتائج.</td></tr>
+          <tr><td class="num">4</td><td>تسرّب مفاتيح تاريخي</td><td><span class="pill crit">حرج</span></td><td>تأكيد تدوير كل المفاتيح، وفحص أسرار في CI، ومنع الإيداع.</td></tr>
+          <tr><td class="num">5</td><td>وكلاء/تقارير محاكاة</td><td><span class="pill med">متوسط</span></td><td>تنفيذ المرحلة 3 (تقارير) ثم إضافة أدوات Web/Vuln/Code الحقيقية بنمط nmap.</td></tr>
+          <tr><td class="num">6</td><td>لا اختبارات واجهة</td><td><span class="pill low">منخفض</span></td><td>إضافة اختبارات مكوّنات/E2E للمسارات الحرجة في الواجهة.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>الخلاصة</h3>
+    <p>المشروع في وضع صحّي: الأساس المعماري متين والاتجاه صحيح، والفجوة الأساسية ليست في الجودة بل في <strong>المدى</strong> — تحويل ما تبقّى من محاكاة إلى تنفيذ حقيقي عبر المراحل 3–7، مع إغلاق الفجوتين الأمنيتين الحرجتين (البوابة والموافقة) قبل أي استخدام خارج المختبر.</p>
+  </section>
+
+  <footer>
+    <p>مراجعة فنية لمنصّة CyberGuard AI · مبنية على تدقيق مباشر للشيفرة عند الـ commit <span class="mono">d03e1d8</span> · التاريخ <span class="num">2026-08-30</span>.<br/>
+    الأرقام (785 سطراً، 33 اختباراً، 21 وحدة خادم) مُتحقَّق منها من الشجرة الحيّة وقت الكتابة.</p>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var btn = document.getElementById("themeToggle");
+    var root = document.documentElement;
+    function current() {
+      var s = root.getAttribute("data-theme");
+      if (s) return s;
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    btn.addEventListener("click", function () {
+      var next = current() === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("cg-theme", next); } catch (e) {}
+    });
+    try {
+      var saved = localStorage.getItem("cg-theme");
+      if (saved) root.setAttribute("data-theme", saved);
+    } catch (e) {}
+  })();
+</script>

@@ -10,6 +10,8 @@
 
 import { z } from "zod";
 import type { ToolRunRequest, ToolRunResult } from "../sandbox/types";
+import type { ToolAdapter, ToolDescriptor } from "./types";
+import { DEFAULT_RESOURCE_LIMITS } from "./types";
 
 export const NmapParamsSchema = z.object({
   ports: z
@@ -79,3 +81,31 @@ export function summarizeNmapResult(result: ToolRunResult): ToolRunResult {
     },
   };
 }
+
+/** Registry descriptor for the nmap adapter. */
+export const nmapDescriptor: ToolDescriptor = {
+  id: NMAP_TOOL_ID,
+  name: "Nmap Port & Service Scanner",
+  version: "1.0.0",
+  description:
+    "Authorized TCP connect port/service discovery. Uses -sT only, so the " +
+    "container needs no raw-socket capability and all Linux caps stay dropped.",
+  capabilities: ["port-discovery", "service-detection"],
+  inputSchema: NmapParamsSchema,
+  outputSchemaHint: '{ openPorts: [{ port, protocol, state, service }], openPortCount: number }',
+  permissions: ["network:scan"],
+  riskLevel: "MEDIUM",
+  timeoutMs: 60_000,
+  resourceLimits: DEFAULT_RESOURCE_LIMITS,
+  sandboxRequired: true,
+  get image() {
+    return nmapImage();
+  },
+};
+
+/** The executable nmap adapter registered in the tool registry. */
+export const nmapAdapter: ToolAdapter = {
+  descriptor: nmapDescriptor,
+  build: buildNmapRequest,
+  parse: summarizeNmapResult,
+};

@@ -18,6 +18,7 @@ import {
   diagnoseAndRecoverError,
 } from "./src/server/core/index";
 import { executeTool, GatewayDeniedError, ApprovalRequiredError } from "./src/server/sandbox/index";
+import { ToolNotAvailableError, ToolNotRegisteredError } from "./src/server/core/errors";
 import { buildNmapRequest, summarizeNmapResult, NMAP_TOOL_ID } from "./src/server/tools/index";
 import { runMission, buildOrchestratedMultiAgentPlan } from "./src/server/orchestrator/index";
 import { ZodError } from "zod";
@@ -260,7 +261,16 @@ export async function createApp() {
           gatewayResult: err.decision,
         });
       }
-      // Last-resort: never fail the mission on an unexpected engine error.
+      if (err instanceof ToolNotAvailableError) {
+        return res.status(503).json({
+          error: err.code,
+          toolId: err.toolId,
+          message: err.message,
+          reason: err.detail,
+        });
+      }
+      // Last-resort: degrade to the (clearly labelled) template plan rather
+      // than 500-ing. `templateOnly: true` tells the caller nothing ran.
       const fallbackPlan = buildOrchestratedMultiAgentPlan(userPrompt, target, projectId);
       addAuditLog("LocalOrchestrator", "RUN_MISSION_FALLBACK", target, "COMPLETED", `Fallback plan after engine error: ${(err as Error).message}`);
       return res.json(fallbackPlan);
@@ -315,6 +325,13 @@ export async function createApp() {
       }
       if (err instanceof ApprovalRequiredError) {
         return res.status(428).json({ error: "APPROVAL_REQUIRED", message: err.decision.reason, humanApprovalRequired: true });
+      }
+      if (err instanceof ToolNotRegisteredError) {
+        return res.status(400).json({ error: err.code, message: err.message });
+      }
+      if (err instanceof ToolNotAvailableError) {
+        // Honest failure (§40): the tool did not run, and we say exactly why.
+        return res.status(503).json({ error: err.code, toolId: err.toolId, message: err.message, reason: err.detail });
       }
       if (err instanceof ZodError) {
         return res.status(400).json({ error: "VALIDATION_ERROR", message: err.issues.map((i) => i.message).join("; ") });

@@ -9,6 +9,8 @@
  */
 
 import { validateSecurityGateway, addAuditLog } from "../core/index";
+import { ToolNotAvailableError, ToolNotRegisteredError } from "../core/errors";
+import { isToolRegistered, hasAdapter } from "../tools/registry";
 import type { GatewayDecision } from "../core/gateway";
 import { LocalSimExecutor } from "./localSim";
 import { DockerExecutor } from "./docker";
@@ -40,17 +42,46 @@ export class ApprovalRequiredError extends Error {
 }
 
 /**
- * Resolve which executor to use.
- *   SANDBOX_MODE=local  → always simulate
- *   SANDBOX_MODE=docker → Docker, or simulate if the daemon is unreachable
- *   (unset / "auto")    → Docker when available, else simulate
+ * Sandbox mode, normalized. "local" is retained as an alias of "simulate" for
+ * backwards compatibility with existing configuration.
+ */
+export type SandboxMode = "auto" | "docker" | "simulate";
+
+export function resolveSandboxMode(): SandboxMode {
+  const raw = (process.env.SANDBOX_MODE || "auto").trim().toLowerCase();
+  if (raw === "local" || raw === "simulate") return "simulate";
+  if (raw === "docker") return "docker";
+  return "auto";
+}
+
+/**
+ * Resolve the executor for a tool run, or throw {@link ToolNotAvailableError}.
+ *
+ * This is the honest-failure contract (§40): simulation is only ever used when
+ * an operator explicitly opted into it via SANDBOX_MODE. In "auto"/"docker",
+ * an unreachable Docker daemon is a hard failure, not a silent downgrade into
+ * fabricated output.
+ */
+export async function resolveExecutor(toolId: string): Promise<ToolExecutor> {
+  const mode = resolveSandboxMode();
+  if (mode === "simulate") return localSim;
+
+  if (await docker.isAvailable()) return docker;
+
+  throw new ToolNotAvailableError(
+    toolId,
+    "the Docker sandbox is unreachable and SANDBOX_MODE is not \"simulate\", " +
+      "so no real isolated executor is available. Start Docker, or set " +
+      "SANDBOX_MODE=simulate to explicitly accept clearly-labelled simulated output.",
+  );
+}
+
+/**
+ * Backwards-compatible accessor used by diagnostics. Returns the simulation
+ * executor when Docker is unreachable rather than throwing.
  */
 export async function getActiveExecutor(): Promise<ToolExecutor> {
-  const mode = (process.env.SANDBOX_MODE || "auto").trim().toLowerCase();
-  if (mode === "local") return localSim;
-  if (mode === "docker" || mode === "auto") {
-    if (await docker.isAvailable()) return docker;
-  }
+  if (resolveSandboxMode() !== "simulate" && (await docker.isAvailable())) return docker;
   return localSim;
 }
 
@@ -74,6 +105,18 @@ export interface ExecuteToolParams {
  * Never throws for a mere tool failure — that is reported via status/exitCode.
  */
 export async function executeTool(p: ExecuteToolParams): Promise<ToolRunResult> {
+  // 0. Registry: unknown tools are denied outright (fail closed).
+  if (!isToolRegistered(p.toolId)) {
+    addAuditLog(
+      p.actor || "ToolManager",
+      `BLOCKED_${p.toolId.toUpperCase()}`,
+      p.target,
+      "DENIED",
+      `Unregistered tool "${p.toolId}" rejected by the tool registry.`,
+    );
+    throw new ToolNotRegisteredError(p.toolId);
+  }
+
   const decision = validateSecurityGateway(p.target, p.toolId, p.projectId);
   if (!decision.isAllowed) {
     throw new GatewayDeniedError(decision);
@@ -90,11 +133,23 @@ export async function executeTool(p: ExecuteToolParams): Promise<ToolRunResult> 
     throw new ApprovalRequiredError(decision);
   }
 
-  let executor = await getActiveExecutor();
-  // Docker needs an image; tools without an adapter image run in simulation.
-  if (executor.id === "docker" && !p.image) {
-    executor = localSim;
+  // A registered tool with no adapter cannot produce a real result. Saying so
+  // is the whole point — never emit a fabricated SUCCESS for it.
+  if (!hasAdapter(p.toolId) && resolveSandboxMode() !== "simulate") {
+    addAuditLog(
+      p.actor || "ToolManager",
+      `BLOCKED_${p.toolId.toUpperCase()}`,
+      p.target,
+      "NOT_AVAILABLE",
+      `Tool "${p.toolId}" is declared in the registry but has no implemented adapter.`,
+    );
+    throw new ToolNotAvailableError(
+      p.toolId,
+      "it is declared in the registry but has no implemented adapter yet",
+    );
   }
+
+  const executor = await resolveExecutor(p.toolId);
   const req: ToolRunRequest = {
     toolId: p.toolId,
     target: p.target,
@@ -103,6 +158,12 @@ export async function executeTool(p: ExecuteToolParams): Promise<ToolRunResult> 
     timeoutMs: p.timeoutMs,
     params: p.params,
   };
+  if (executor.id === "docker" && !req.image) {
+    throw new ToolNotAvailableError(
+      p.toolId,
+      "no container image is configured for this tool, so it cannot run in the Docker sandbox",
+    );
+  }
   const result = await executor.run(req);
 
   addAuditLog(
@@ -116,3 +177,5 @@ export async function executeTool(p: ExecuteToolParams): Promise<ToolRunResult> 
 
   return result;
 }
+
+export { ToolNotAvailableError, ToolNotRegisteredError };

@@ -44,6 +44,8 @@ async function pullImage(docker: DockerodeType, image: string): Promise<void> {
 export class DockerExecutor implements ToolExecutor {
   readonly id = "docker" as const;
   private cachedDocker: DockerodeType | null | undefined;
+  /** Short-lived availability cache: probing on every tool call is wasteful. */
+  private availability?: { value: boolean; expiresAt: number };
 
   private async getDocker(): Promise<DockerodeType | null> {
     if (this.cachedDocker === undefined) {
@@ -52,14 +54,36 @@ export class DockerExecutor implements ToolExecutor {
     return this.cachedDocker;
   }
 
+  /**
+   * Probe the daemon with a hard deadline. Without one, an unreachable socket
+   * can hang for the OS connect timeout and stall every tool request behind it.
+   */
   async isAvailable(): Promise<boolean> {
+    if (this.availability && Date.now() < this.availability.expiresAt) {
+      return this.availability.value;
+    }
+    const ttlMs = Number(process.env.SANDBOX_DOCKER_PROBE_TTL_MS) || 30_000;
+    const remember = (value: boolean) => {
+      this.availability = { value, expiresAt: Date.now() + ttlMs };
+      return value;
+    };
+
     const docker = await this.getDocker();
-    if (!docker) return false;
+    if (!docker) return remember(false);
+    const timeoutMs = Number(process.env.SANDBOX_DOCKER_PING_TIMEOUT_MS) || 2000;
+    let timer: NodeJS.Timeout | undefined;
     try {
-      await docker.ping();
-      return true;
+      await Promise.race([
+        docker.ping(),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error("docker ping timed out")), timeoutMs);
+        }),
+      ]);
+      return remember(true);
     } catch {
-      return false;
+      return remember(false);
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 

@@ -8,8 +8,10 @@
  * no model configured.
  */
 
+import { z } from "zod";
 import { BaseAgent } from "../base";
 import type { AgentResult } from "../base";
+import type { AgentDescriptor, AgentRunContext } from "../types";
 import { executeTool } from "../../sandbox/index";
 import { buildNmapRequest, summarizeNmapResult, NMAP_TOOL_ID, nmapImage } from "../../tools/nmap";
 import type { NmapPort } from "../../tools/nmap";
@@ -36,10 +38,60 @@ export interface ReconData {
   analysis: ReconAnalysis;
 }
 
+export const ReconInputSchema = z.object({
+  target: z.string().min(1).max(500),
+  params: z.unknown().optional(),
+  projectId: z.string().max(100).optional(),
+});
+
+export const ReconOutputSchema = z.object({
+  target: z.string(),
+  openPorts: z.array(
+    z.object({
+      port: z.number(),
+      protocol: z.string(),
+      state: z.string(),
+      service: z.string(),
+    }),
+  ),
+  openPortCount: z.number(),
+  sandboxMode: z.string(),
+  analysis: z.object({
+    hostRole: z.string(),
+    notableServices: z.array(z.string()),
+    riskObservations: z.array(z.string()),
+    nextSteps: z.array(z.string()),
+  }),
+});
+
+export const reconDescriptor: AgentDescriptor = {
+  id: "recon",
+  name: "Reconnaissance Agent",
+  description:
+    "Discovers the network attack surface of an authorized target by running " +
+    "a sandboxed nmap TCP connect scan and reasoning over the parsed ports.",
+  capabilities: ["asset-discovery", "service-discovery", "port-discovery"],
+  skills: ["reconnaissance.service-discovery"],
+  allowedTools: ["nmap"],
+  permissions: ["tool:execute", "scope:read"],
+  riskLevel: "MEDIUM",
+  timeoutMs: 90_000,
+  inputSchema: ReconInputSchema,
+  outputSchema: ReconOutputSchema,
+  memoryPolicy: { maxTasks: 3, persistRawOutput: false },
+};
+
 export class ReconAgent extends BaseAgent {
   readonly id = "recon";
 
-  async run(input: ReconInput): Promise<AgentResult<ReconData>> {
+  describe(): AgentDescriptor {
+    return reconDescriptor;
+  }
+
+  async run(input: ReconInput, ctx?: AgentRunContext): Promise<AgentResult<ReconData>> {
+    const parsed = ReconInputSchema.parse(input);
+    input = { ...parsed, params: input.params } as ReconInput;
+    if (ctx?.projectId && !input.projectId) input.projectId = ctx.projectId;
     this.remember(input);
 
     const req = buildNmapRequest(input.target, input.params);

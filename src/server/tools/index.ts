@@ -7,4 +7,6 @@
  * (nuclei, semgrep, ...) follow the same shape.
  */
 
+export * from "./types";
 export * from "./nmap";
+export * from "./registry";

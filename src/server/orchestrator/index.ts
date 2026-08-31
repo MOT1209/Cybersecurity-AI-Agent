@@ -10,7 +10,8 @@
  */
 
 import { generateJSON, wrapUserInput } from "../llm/index";
-import { reconAgent } from "../agents/recon/agent";
+import { agentManager } from "../agents/index";
+import type { ReconData } from "../agents/recon/agent";
 import { GatewayDeniedError } from "../sandbox/index";
 import { addAuditLog } from "../core/index";
 import { buildOrchestratedMultiAgentPlan } from "./localPlan";
@@ -45,8 +46,13 @@ export async function runMission(input: MissionInput) {
   // Deterministic template — the guaranteed-valid baseline and LLM fallback.
   const plan = buildOrchestratedMultiAgentPlan(userPrompt, target, projectId);
 
-  // --- Real Recon (nmap in the sandbox) ---
-  const recon = await reconAgent.run({ target, projectId }); // GatewayDeniedError propagates
+  // --- Real Recon (nmap in the sandbox), dispatched via the Agent Manager ---
+  // GatewayDeniedError / ToolNotAvailableError propagate to the route.
+  const recon = await agentManager.dispatch<ReconData>(
+    "recon",
+    { target, projectId },
+    { projectId, traceId: plan.traceId },
+  );
   const { openPorts, openPortCount, sandboxMode, analysis } = recon.data;
   const openList =
     openPorts
@@ -55,6 +61,17 @@ export async function runMission(input: MissionInput) {
       .join(", ") || "no open ports observed";
 
   // Replace the template's recon step (index 2 == stepNumber 3) with real data.
+  // Every template step is a *plan*, not an execution record. Only the steps
+  // this run actually performed are marked COMPLETED below (§40).
+  for (const step of plan.steps) {
+    if (step.agent === "orchestrator" || step.agent === "gateway") continue;
+    step.status = "PENDING";
+    step.real = false;
+    step.outputSummary = "لم يُنفَّذ بعد — لا يوجد وكيل/أداة مُفعَّلة لهذه الخطوة.";
+    step.detailedLog = `[${step.agent}] NOT EXECUTED: no implemented agent/tool adapter for this step yet.`;
+    delete step.durationMs;
+  }
+
   const reconStepIdx = plan.steps.findIndex((s: any) => s.agent === "recon");
   if (reconStepIdx >= 0) {
     plan.steps[reconStepIdx] = {
@@ -129,11 +146,31 @@ export async function runMission(input: MissionInput) {
   const usedModel = !synth.fallback;
   const result = {
     ...plan,
+    // Recon really ran, so this payload is no longer template-only — but the
+    // remaining steps are still PENDING and are labelled as such above.
+    status: "PARTIAL",
+    templateOnly: false,
     summaryAr: synth.data.summaryAr || plan.summaryAr,
     summaryEn: synth.data.summaryEn || plan.summaryEn,
     generatedFindings: [
       ...reconFinding,
-      ...(usedModel && Array.isArray(synth.data.findings) ? synth.data.findings : plan.generatedFindings),
+      // Model output is a hypothesis until the Validation agent confirms it, so
+      // it is stamped rather than presented alongside the real recon finding.
+      ...(usedModel && Array.isArray(synth.data.findings)
+        ? synth.data.findings.map((f) => ({
+            ...f,
+            hypothetical: true,
+            source: "llm-synthesis",
+            validation: {
+              isValidated: false,
+              validatedByAgent: null,
+              confidenceScore: 0,
+              evidenceTrace: ["Model-generated hypothesis. No tool produced this finding."],
+              falsePositiveAnalysis: "Not assessed — pending the Validation agent.",
+              retestStatus: "UNVERIFIED",
+            },
+          }))
+        : plan.generatedFindings),
     ],
     engine: {
       reconReal: true,
