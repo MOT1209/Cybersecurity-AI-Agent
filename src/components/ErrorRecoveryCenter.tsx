@@ -8,11 +8,11 @@ import {
   Server,
   Terminal,
   Sparkles,
-  CheckCircle2,
   RefreshCw,
   Sliders,
   ChevronRight,
   Layers,
+  AlertOctagon,
   Search,
 } from 'lucide-react';
 import { ErrorRecoveryEvent, ErrorClassification, RecoveryStrategyType } from '../types';
@@ -97,11 +97,13 @@ export const ErrorRecoveryCenter: React.FC<ErrorRecoveryCenterProps> = ({ langua
 
   const [events, setEvents] = useState<ErrorRecoveryEvent[]>([]);
   const [circuitBreakers, setCircuitBreakers] = useState<Record<string, any>>({});
+  // Zeroed until the backend reports real counts. Seeding these with numbers
+  // made an untouched install look like it had already recovered from failures.
   const [stats, setStats] = useState({
-    totalRecovered: 3,
-    fallbacksExecuted: 1,
+    diagnosesRecorded: 0,
+    escalated: 0,
+    recoveryProposed: 0,
     activeCircuitBreakers: 0,
-    successRatePercentage: 98.4,
   });
   const [selectedEvent, setSelectedEvent] = useState<ErrorRecoveryEvent | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -198,24 +200,39 @@ export const ErrorRecoveryCenter: React.FC<ErrorRecoveryCenterProps> = ({ langua
     }
   };
 
-  const handleExecuteSafeRetryNow = () => {
+  /**
+   * Re-run the diagnosis against the backend.
+   *
+   * This used to fake a retry client-side: a setTimeout that stamped the event
+   * AUTO_RECOVERED and appended "Tool response verified with status 200 OK"
+   * without contacting anything. Acting on a recommendation means re-issuing
+   * the tool request through /api/tools/execute, not editing local state.
+   */
+  const handleRediagnose = async () => {
     if (!selectedEvent) return;
     setIsRetrying(true);
-    setTimeout(() => {
+    try {
+      const res = await apiFetch('/api/error-recovery/diagnose-and-retry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toolName: selectedEvent.toolName,
+          target: selectedEvent.target,
+          rawError: selectedEvent.rawError,
+          language,
+        }),
+      });
+      if (res.ok) {
+        const refreshed: ErrorRecoveryEvent = await res.json();
+        setEvents((prev) => [refreshed, ...prev]);
+        setSelectedEvent(refreshed);
+        fetchRecoveryData();
+      }
+    } catch (e) {
+      console.error('Failed to re-diagnose:', e);
+    } finally {
       setIsRetrying(false);
-      setSelectedEvent((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: 'AUTO_RECOVERED',
-              executionLog: [
-                ...prev.executionLog,
-                `[+ Manual Retry Triggered]: Safe backoff executed -> Tool response verified with status 200 OK.`,
-              ],
-            }
-          : null
-      );
-    }, 1800);
+    }
   };
 
   const filteredEvents = events.filter((ev) => {
@@ -246,14 +263,14 @@ export const ErrorRecoveryCenter: React.FC<ErrorRecoveryCenterProps> = ({ langua
                 <h2 className="text-xl font-bold text-slate-100">
                   {isAr ? 'نظام اكتشاف وتصحيح الأخطاء (Error Recovery & Safe Retry)' : 'Error Recovery & Safe Retry Engine'}
                 </h2>
-                <span className="px-2 py-0.5 text-xs font-mono rounded-full bg-emerald-950/80 border border-emerald-500/30 text-emerald-400">
-                  Self-Healing v3.0
+                <span className="px-2 py-0.5 text-xs font-mono rounded-full bg-amber-950/80 border border-amber-500/30 text-amber-300">
+                  {isAr ? 'تشخيص فقط' : 'DIAGNOSIS ONLY'}
                 </span>
               </div>
               <p className="text-sm text-slate-400 mt-1 max-w-2xl">
                 {isAr
-                  ? 'رصد أعطال الأدوات وخنق جدران الحماية (WAF 429) وانقطاع الشبكة، وتحليل السبب الجذري وتنفيذ إعادة المحاولة الآمنة (Safe Backoff) تلقائياً.'
-                  : 'Automatic failure diagnosis, WAF rate-limit backoff, and self-healing tool fallback for zero-disruption security scanning.'}
+                  ? 'يصنّف هذا المحرك أعطال الأدوات (خنق WAF، إسقاط الحزم، نفاد الذاكرة) ويقترح استراتيجية معالجة. لا يعيد المحاولة بنفسه — لتنفيذ التوصية أعد إصدار طلب الأداة عبر بوابة الأمان.'
+                  : 'This engine classifies tool failures (WAF throttling, dropped packets, OOM) and recommends a strategy. It does not retry on your behalf — act on a recommendation by re-issuing the tool request through the security gateway.'}
               </p>
             </div>
           </div>
@@ -273,31 +290,31 @@ export const ErrorRecoveryCenter: React.FC<ErrorRecoveryCenterProps> = ({ langua
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-5 border-t border-slate-800/80">
           <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3">
             <span className="text-xs text-slate-400 block mb-1">
-              {isAr ? 'حالات الاسترداد الآلية' : 'Auto Recovered Events'}
+              {isAr ? 'تشخيصات مُسجَّلة' : 'Diagnoses Recorded'}
             </span>
             <div className="flex items-center justify-between">
-              <span className="text-xl font-bold font-mono text-emerald-400">{stats.totalRecovered}</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-500/70" />
+              <span className="text-xl font-bold font-mono text-cyan-400">{stats.diagnosesRecorded}</span>
+              <Activity className="w-4 h-4 text-cyan-500/70" />
             </div>
           </div>
 
           <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3">
             <span className="text-xs text-slate-400 block mb-1">
-              {isAr ? 'التحويل للأدوات البديلة (Fallbacks)' : 'Tool Fallbacks Executed'}
+              {isAr ? 'استراتيجيات مقترحة' : 'Strategies Proposed'}
             </span>
             <div className="flex items-center justify-between">
-              <span className="text-xl font-bold font-mono text-cyan-400">{stats.fallbacksExecuted}</span>
-              <Layers className="w-4 h-4 text-cyan-500/70" />
+              <span className="text-xl font-bold font-mono text-amber-300">{stats.recoveryProposed}</span>
+              <Layers className="w-4 h-4 text-amber-500/70" />
             </div>
           </div>
 
           <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3">
             <span className="text-xs text-slate-400 block mb-1">
-              {isAr ? 'نسبة نجاح الاسترداد' : 'Recovery Success Rate'}
+              {isAr ? 'حالات مُصعَّدة' : 'Escalated'}
             </span>
             <div className="flex items-center justify-between">
-              <span className="text-xl font-bold font-mono text-teal-300">{stats.successRatePercentage}%</span>
-              <Activity className="w-4 h-4 text-teal-500/70" />
+              <span className="text-xl font-bold font-mono text-rose-400">{stats.escalated}</span>
+              <AlertOctagon className="w-4 h-4 text-rose-500/70" />
             </div>
           </div>
 
@@ -574,28 +591,35 @@ export const ErrorRecoveryCenter: React.FC<ErrorRecoveryCenterProps> = ({ langua
             <div className="flex items-center gap-2">
               <span
                 className={`text-xs font-mono px-2.5 py-1 rounded-md border flex items-center gap-1.5 ${
-                  selectedEvent.status === 'AUTO_RECOVERED' || selectedEvent.status === 'FALLBACK_SUCCESS'
-                    ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300'
+                  selectedEvent.status === 'ESCALATED'
+                    ? 'bg-rose-950/80 border-rose-700 text-rose-300'
                     : 'bg-amber-950/80 border-amber-700 text-amber-300'
                 }`}
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
+                {selectedEvent.status === 'ESCALATED' ? (
+                  <AlertOctagon className="w-3.5 h-3.5" />
+                ) : (
+                  <Layers className="w-3.5 h-3.5" />
+                )}
                 <span>
-                  {selectedEvent.status === 'AUTO_RECOVERED'
-                    ? (isAr ? 'تم الاسترداد التلقائي بنجاح' : 'Auto-Recovered')
-                    : selectedEvent.status === 'FALLBACK_SUCCESS'
-                    ? (isAr ? 'نجاح الأداة البديلة' : 'Fallback Succeeded')
-                    : (isAr ? 'جاري المعالجة' : 'Retrying')}
+                  {selectedEvent.status === 'ESCALATED'
+                    ? (isAr ? 'مُصعَّد — القاطع مفتوح' : 'Escalated — breaker open')
+                    : (isAr ? 'استراتيجية مقترحة (لم تُنفَّذ)' : 'Strategy proposed (not executed)')}
                 </span>
               </span>
 
               <button
-                onClick={handleExecuteSafeRetryNow}
+                onClick={handleRediagnose}
                 disabled={isRetrying}
                 className="px-3 py-1.5 text-xs font-medium rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition-colors"
+                title={
+                  isAr
+                    ? 'يعيد التشخيص فقط. لا يشغّل الأداة.'
+                    : 'Re-runs the diagnosis only. It does not execute the tool.'
+                }
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin text-emerald-400' : 'text-slate-400'}`} />
-                <span>{isRetrying ? (isAr ? 'جاري إعادة المحاولة...' : 'Retrying...') : (isAr ? 'إعادة المحاولة فوراً' : 'Force Safe Retry')}</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin text-cyan-400' : 'text-slate-400'}`} />
+                <span>{isRetrying ? (isAr ? 'جاري التشخيص...' : 'Diagnosing...') : (isAr ? 'إعادة التشخيص' : 'Re-diagnose')}</span>
               </button>
             </div>
           </div>
@@ -793,8 +817,8 @@ export const ErrorRecoveryCenter: React.FC<ErrorRecoveryCenterProps> = ({ langua
                     <td className="py-3 font-mono text-[11px]">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] ${
-                          ev.status === 'AUTO_RECOVERED' || ev.status === 'FALLBACK_SUCCESS'
-                            ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800'
+                          ev.status === 'ESCALATED'
+                            ? 'bg-rose-950/80 text-rose-400 border border-rose-800'
                             : 'bg-amber-950/80 text-amber-400 border border-amber-800'
                         }`}
                       >

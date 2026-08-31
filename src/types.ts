@@ -316,6 +316,13 @@ export interface ErrorRecoveryEvent {
   proposedFixAr: string;
   proposedFixEn: string;
   alternativeTool?: string;
-  status: 'DETECTED' | 'RETRYING' | 'AUTO_RECOVERED' | 'FALLBACK_SUCCESS' | 'FAILED' | 'ESCALATED';
+  /**
+   * The engine classifies a failure and RECOMMENDS a strategy; it does not
+   * retry. `AUTO_RECOVERED` / `FALLBACK_SUCCESS` were removed because they
+   * claimed an outcome for a retry that never ran.
+   */
+  status: 'RECOVERY_PROPOSED' | 'ESCALATED';
+  /** Always false today — no retry is executed by the diagnosis engine. */
+  recoveryExecuted: boolean;
   executionLog: string[];
 }

@@ -1,4 +1,4 @@
-import { AgentMetadata, ToolPlugin, ProjectScope, LabEnvironment } from '../types';
+import { AgentMetadata, ProjectScope } from '../types';
 
 export const SYSTEM_AGENTS: AgentMetadata[] = [
   {
@@ -147,157 +147,15 @@ export const SYSTEM_AGENTS: AgentMetadata[] = [
   }
 ];
 
-export const TOOL_PLUGINS: ToolPlugin[] = [
-  {
-    id: 'nmap',
-    name: 'Nmap Port & Service Scanner',
-    category: 'Recon',
-    descriptionAr: 'أداة مسح الشبكات وكشف المنافذ المفتوحة والخدمات وإصداراتها وأنظمة التشغيل.',
-    descriptionEn: 'Network exploration tool and security/port scanner with service version fingerprinting.',
-    version: '7.94-RELEASE',
-    riskLevel: 'LOW',
-    requiresHumanApproval: false,
-    requiredPermissions: ['net:scan', 'port:discover'],
-    timeoutSeconds: 30,
-    inputSchema: {
-      targetType: 'ip',
-      sampleInput: '192.168.1.50',
-      params: [
-        { name: 'ports', type: 'string', defaultVal: '1-1000', description: 'Port range to inspect' },
-        { name: 'timing', type: 'string', defaultVal: '-T4', description: 'Nmap timing template' }
-      ]
-    }
-  },
-  {
-    id: 'nuclei',
-    name: 'Nuclei Vulnerability Engine',
-    category: 'Web',
-    descriptionAr: 'ماسح سريع للثغرات مبني على قوالب مجتمعية لاكتشاف الأخطاء وتكوينات الويب غير الآمنة.',
-    descriptionEn: 'Fast template-based vulnerability scanner for automated web and service security testing.',
-    version: '3.1.8',
-    riskLevel: 'MEDIUM',
-    requiresHumanApproval: false,
-    requiredPermissions: ['web:probe', 'cve:scan'],
-    timeoutSeconds: 45,
-    inputSchema: {
-      targetType: 'url',
-      sampleInput: 'http://192.168.1.50:8080',
-      params: [
-        { name: 'tags', type: 'string', defaultVal: 'cve,misconfig,exposure', description: 'Template tags to execute' }
-      ]
-    }
-  },
-  {
-    id: 'subfinder',
-    name: 'Subfinder Subdomain Recon',
-    category: 'Recon',
-    descriptionAr: 'أداة كشف النطاقات الفرعية السلبية (Passive Subdomain Discovery) عبر السجلات العامة.',
-    descriptionEn: 'Fast passive subdomain discovery tool utilizing internet archives and OSINT feeds.',
-    version: '2.6.4',
-    riskLevel: 'SAFE',
-    requiresHumanApproval: false,
-    requiredPermissions: ['osint:dns'],
-    timeoutSeconds: 20,
-    inputSchema: {
-      targetType: 'domain',
-      sampleInput: 'corp-target.lab',
-      params: []
-    }
-  },
-  {
-    id: 'semgrep',
-    name: 'Semgrep SAST Code Engine',
-    category: 'Code',
-    descriptionAr: 'محرك التحليل الساكن للأكواد البرمجية لاكتشاف الثغرات وتطبيق قواعد الترميز الآمن.',
-    descriptionEn: 'Lightweight static analysis engine for finding bugs, misconfigurations, and enforcing secure code rules.',
-    version: '1.60.0',
-    riskLevel: 'SAFE',
-    requiresHumanApproval: false,
-    requiredPermissions: ['code:read', 'sast:audit'],
-    timeoutSeconds: 25,
-    inputSchema: {
-      targetType: 'code',
-      sampleInput: 'def login(user, password): ...',
-      params: [
-        { name: 'ruleset', type: 'string', defaultVal: 'p/owasp-top-ten', description: 'Security ruleset to apply' }
-      ]
-    }
-  },
-  {
-    id: 'trivy',
-    name: 'Trivy Container & FS Scanner',
-    category: 'Container',
-    descriptionAr: 'أداة شاملة لفحص صور الحاويات وحزم البرمجيات واكتشاف ثغرات الـ CVE ومفاتيح التشفير.',
-    descriptionEn: 'Comprehensive security scanner for container images, file systems, and Git repositories.',
-    version: '0.49.1',
-    riskLevel: 'LOW',
-    requiresHumanApproval: false,
-    requiredPermissions: ['container:inspect'],
-    timeoutSeconds: 40,
-    inputSchema: {
-      targetType: 'container',
-      sampleInput: 'app-web-server:latest',
-      params: [
-        { name: 'severity', type: 'string', defaultVal: 'CRITICAL,HIGH', description: 'Filter severity threshold' }
-      ]
-    }
-  },
-  {
-    id: 'zap',
-    name: 'OWASP ZAP Dynamic API Tester',
-    category: 'Web',
-    descriptionAr: 'فاحص ديناميكي لتطبيقات الويب (DAST) لاكتشاف ثغرات SQLi, XSS, و CSRF أثناء التشغيل.',
-    descriptionEn: 'Dynamic application security testing (DAST) engine for active web scanning.',
-    version: '2.14.0',
-    riskLevel: 'HIGH',
-    requiresHumanApproval: true,
-    requiredPermissions: ['web:active_attack', 'dast:inject'],
-    timeoutSeconds: 60,
-    inputSchema: {
-      targetType: 'url',
-      sampleInput: 'http://192.168.1.50/login.php',
-      params: [
-        { name: 'attack_strength', type: 'string', defaultVal: 'Low', description: 'Attack depth in sandbox' }
-      ]
-    }
-  },
-  {
-    id: 'prowler',
-    name: 'Prowler Cloud Security Auditing',
-    category: 'Cloud',
-    descriptionAr: 'أداة تدقيق الأمان السحابي وفق معايير CIS Benchmarks و GDPR و NIST.',
-    descriptionEn: 'Cloud security assessment and compliance tool for AWS, GCP, and Azure.',
-    version: '3.11.0',
-    riskLevel: 'MEDIUM',
-    requiresHumanApproval: false,
-    requiredPermissions: ['cloud:read_config'],
-    timeoutSeconds: 45,
-    inputSchema: {
-      targetType: 'config',
-      sampleInput: 'gcp-project-iam-policy.json',
-      params: []
-    }
-  },
-  {
-    id: 'volatility',
-    name: 'Volatility Memory Forensics Engine',
-    category: 'Forensics',
-    descriptionAr: 'تحليل صور الذاكرة العشوائية (RAM Dumps) لاستخراج العمليات المخفية وحقن الشيفرات.',
-    descriptionEn: 'Advanced memory forensics framework for incident response and malware analysis.',
-    version: '3.2.0',
-    riskLevel: 'SAFE',
-    requiresHumanApproval: false,
-    requiredPermissions: ['forensics:memory'],
-    timeoutSeconds: 50,
-    inputSchema: {
-      targetType: 'log',
-      sampleInput: 'memory_dump_snapshot.raw',
-      params: [
-        { name: 'plugin', type: 'string', defaultVal: 'windows.pslist', description: 'Volatility plugin' }
-      ]
-    }
-  }
-];
+/**
+ * NOTE: TOOL_PLUGINS and LAB_ENVIRONMENTS used to live here as static arrays
+ * claiming tools were "Installed" and labs were "RUNNING". Nothing rendered
+ * them, and nothing verified them. The real state now comes from the backend:
+ *   tools -> GET /api/tools/health  (verified adapter + sandbox + image state)
+ *   agents -> GET /api/agents       (only agents the orchestrator can dispatch)
+ * Labs have no backend yet, so there is deliberately no catalog to display.
+ */
+
 
 export const INITIAL_PROJECT_SCOPES: ProjectScope[] = [
   {
@@ -348,44 +206,5 @@ export const INITIAL_PROJECT_SCOPES: ProjectScope[] = [
       strictSandboxEnforced: true,
       auditLoggingEnabled: true
     }
-  }
-];
-
-export const LAB_ENVIRONMENTS: LabEnvironment[] = [
-  {
-    id: 'lab_vuln_shop',
-    name: 'JuiceShop Microservices API Lab',
-    category: 'Vulnerable App',
-    difficulty: 'Intermediate',
-    targetIp: '192.168.1.50',
-    exposedPorts: [80, 8080, 3000, 3306],
-    flag: 'CYBERGUARD{jwt_tamper_and_sqli_cracked_892}',
-    description: 'تطبيق ويب للتجارة الإلكترونية يحتوي على ثغرات OWASP Top 10 (SQL Injection, Broken Object Level Auth, JWT Forgery).',
-    dockerComposeHint: 'docker run -d -p 8080:3000 bkimminich/juice-shop',
-    status: 'RUNNING'
-  },
-  {
-    id: 'lab_k8s_escape',
-    name: 'Kubernetes RBAC Misconfig & Container Escape',
-    category: 'Container Escapes',
-    difficulty: 'Advanced',
-    targetIp: '192.168.1.51',
-    exposedPorts: [6443, 2379, 10250],
-    flag: 'CYBERGUARD{host_pid_and_docker_sock_escape_007}',
-    description: 'بيئة حاويات مع امتيازات مفرطة لحاوية الويب تمكن من قراءة ملف docker.sock والسيطرة على الـ Host Node.',
-    dockerComposeHint: 'docker-compose -f ./labs/k8s-escape/docker-compose.yml up -d',
-    status: 'ISOLATED'
-  },
-  {
-    id: 'lab_network_pcap',
-    name: 'Internal Network Sniffing & Kerberos Golden Ticket',
-    category: 'Network Defense',
-    difficulty: 'Expert',
-    targetIp: '10.0.0.12',
-    exposedPorts: [88, 389, 445, 135],
-    flag: 'CYBERGUARD{kerberos_golden_ticket_hash_dumped_991}',
-    description: 'محاكاة لشبكة Active Directory مخترقة تتطلب تحليل حركة المرور عبر Zeek/Wireshark واستخراج التذاكر المشفرة.',
-    dockerComposeHint: 'docker run -d --net=isolated-corp ad-sim:v2.1',
-    status: 'STOPPED'
   }
 ];

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../lib/api';
 import {
   Play,
@@ -65,6 +65,33 @@ export const OrchestratorDashboard: React.FC<OrchestratorDashboardProps> = ({ la
   const { copy, isCopied } = useCopy();
   const [activeTab, setActiveTab] = useState<'workflow' | 'live_logs' | 'findings' | 'agents_mesh'>('workflow');
   const [recoveringStepId, setRecoveringStepId] = useState<string | null>(null);
+  /**
+   * Agents the backend will actually dispatch to, keyed by id. The catalog in
+   * SYSTEM_AGENTS is aspirational: most of its entries have no implementation,
+   * so every card is labelled against this list rather than presented as if the
+   * whole roster were live.
+   */
+  const [registeredAgents, setRegisteredAgents] = useState<
+    Record<string, { allowedTools: string[]; riskLevel: string; capabilities: string[] }>
+  >({});
+
+  useEffect(() => {
+    apiFetch('/api/agents')
+      .then((res) => (res.ok ? res.json() : { agents: [] }))
+      .then((data) => {
+        const byId: Record<string, { allowedTools: string[]; riskLevel: string; capabilities: string[] }> = {};
+        for (const a of data.agents ?? []) {
+          byId[a.id] = {
+            allowedTools: a.allowedTools ?? [],
+            riskLevel: a.riskLevel ?? 'UNKNOWN',
+            capabilities: a.capabilities ?? [],
+          };
+        }
+        setRegisteredAgents(byId);
+      })
+      .catch((err) => console.warn('Could not load registered agents:', err));
+  }, []);
+
   const [stepRecoveryFeedback, setStepRecoveryFeedback] = useState<Record<string, {
     rootCause: string;
     proposedFix: string;
@@ -72,26 +99,43 @@ export const OrchestratorDashboard: React.FC<OrchestratorDashboardProps> = ({ la
     status: string;
   }>>({});
 
-  const handleSimulateStepErrorAndRecover = (stepId: string, toolName: string = 'Security Tool') => {
+  /**
+   * Ask the backend to classify a tool failure for this step.
+   *
+   * This used to fabricate the whole thing client-side: a setTimeout that
+   * invented a WAF-throttling root cause and stamped the step AUTO_RECOVERED,
+   * without ever contacting the server. It now posts the real error text and
+   * renders whatever the diagnosis engine actually returns — a RECOMMENDATION,
+   * not a completed recovery.
+   */
+  const handleDiagnoseStepFailure = async (
+    stepId: string,
+    toolName: string,
+    rawError: string,
+  ) => {
     setRecoveringStepId(stepId);
-    
-    // Simulate immediate error detection & safe retry
-    setTimeout(() => {
+    try {
+      const res = await apiFetch('/api/error-recovery/diagnose-and-retry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toolName, target, rawError, language }),
+      });
+      if (!res.ok) return;
+      const ev = await res.json();
       setStepRecoveryFeedback((prev) => ({
         ...prev,
         [stepId]: {
-          rootCause: isAr
-            ? `تم رصد خنق جدار الحماية (HTTP 429 / WAF Rate Limit) أثناء تنفيذ ${toolName}.`
-            : `Detected WAF rate limit (HTTP 429) during ${toolName} execution.`,
-          proposedFix: isAr
-            ? `تطبيق تأخير أسي آمن (Backoff 2000ms) وتخفيض التزامن وإعادة المحاولة التلقائية.`
-            : `Applied safe exponential backoff (2000ms), throttled concurrency, and retried automatically.`,
-          strategy: 'THROTTLE_AND_RETRY',
-          status: 'AUTO_RECOVERED',
+          rootCause: isAr ? ev.rootCauseAr : ev.rootCauseEn,
+          proposedFix: isAr ? ev.proposedFixAr : ev.proposedFixEn,
+          strategy: ev.strategy,
+          status: ev.status,
         },
       }));
+    } catch (e) {
+      console.error('Diagnosis request failed:', e);
+    } finally {
       setRecoveringStepId(null);
-    }, 1500);
+    }
   };
 
   const handleRunMission = async () => {
@@ -427,9 +471,9 @@ export const OrchestratorDashboard: React.FC<OrchestratorDashboardProps> = ({ la
                                 </span>
                               )}
                               {recovery && (
-                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1">
+                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 flex items-center gap-1">
                                   <RotateCcw className="w-2.5 h-2.5" />
-                                  <span>Self-Healed</span>
+                                  <span>{recovery.status}</span>
                                 </span>
                               )}
                             </div>
@@ -440,30 +484,51 @@ export const OrchestratorDashboard: React.FC<OrchestratorDashboardProps> = ({ la
 
                         <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
                           <button
-                            onClick={() => handleSimulateStepErrorAndRecover(st.id, st.toolName || 'Security Tool')}
+                            onClick={() =>
+                              handleDiagnoseStepFailure(
+                                st.id,
+                                st.toolName || 'tool',
+                                st.detailedLog || st.outputSummary || 'tool failure',
+                              )
+                            }
                             disabled={isRecovering}
-                            title={isAr ? 'محاكاة عطل وتشغيل الاسترداد الآمن' : 'Simulate Failure & Test Safe Retry'}
+                            title={
+                              isAr
+                                ? 'يصنّف العطل ويقترح استراتيجية. لا يشغّل الأداة.'
+                                : 'Classifies the failure and recommends a strategy. Does not run the tool.'
+                            }
                             className="px-2 py-1 text-[11px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1 transition-colors"
                           >
                             <RotateCcw className={`w-3 h-3 ${isRecovering ? 'animate-spin text-cyan-400' : 'text-slate-400'}`} />
-                            <span>{isRecovering ? (isAr ? 'جاري الاسترداد...' : 'Recovering...') : (isAr ? 'اختبار الاسترداد الآمن' : 'Test Safe Retry')}</span>
+                            <span>{isRecovering ? (isAr ? 'جاري التشخيص...' : 'Diagnosing...') : (isAr ? 'تشخيص العطل' : 'Diagnose failure')}</span>
                           </button>
 
-                          <span className="text-[11px] font-mono text-slate-400">{st.durationMs}ms</span>
-                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-2 py-0.5 rounded">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>{recovery ? 'COMPLETED (SAFE RETRIED)' : st.status}</span>
+                          {typeof st.durationMs === 'number' && (
+                            <span className="text-[11px] font-mono text-slate-400">{st.durationMs}ms</span>
+                          )}
+                          {/* The step's real status. A diagnosis never changes it. */}
+                          <span
+                            className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border ${
+                              st.status === 'COMPLETED'
+                                ? 'text-emerald-400 bg-emerald-950/60 border-emerald-800/50'
+                                : st.status === 'FAILED'
+                                  ? 'text-rose-400 bg-rose-950/60 border-rose-800/50'
+                                  : 'text-slate-400 bg-slate-900 border-slate-700'
+                            }`}
+                          >
+                            {st.status === 'COMPLETED' ? <CheckCircle2 className="w-3 h-3" /> : null}
+                            <span>{st.status}</span>
                           </span>
                         </div>
                       </div>
 
                       {/* Inline Error Recovery Diagnostic Box if triggered */}
                       {recovery && (
-                        <div className="p-3 bg-emerald-950/20 border border-emerald-500/30 rounded-lg text-xs space-y-1.5 animate-in fade-in duration-300">
-                          <div className="flex items-center justify-between text-[11px] font-mono font-semibold text-emerald-400">
+                        <div className="p-3 bg-amber-950/20 border border-amber-500/30 rounded-lg text-xs space-y-1.5 animate-in fade-in duration-300">
+                          <div className="flex items-center justify-between text-[11px] font-mono font-semibold text-amber-300">
                             <span className="flex items-center gap-1.5">
                               <ShieldCheck className="w-3.5 h-3.5" />
-                              <span>{isAr ? 'تم تشخيص العطل والاسترداد التلقائي الآمن (Safe Recovery Resolved)' : 'Automated Error Recovery & Safe Retry Applied'}</span>
+                              <span>{isAr ? 'تشخيص العطل — استراتيجية مقترحة لم تُنفَّذ' : 'Failure diagnosis — recommended strategy, not executed'}</span>
                             </span>
                             <span>Strategy: {recovery.strategy}</span>
                           </div>
@@ -471,9 +536,14 @@ export const OrchestratorDashboard: React.FC<OrchestratorDashboardProps> = ({ la
                             <strong className="text-slate-400">{isAr ? 'السبب الجذري: ' : 'Root Cause: '}</strong>
                             {recovery.rootCause}
                           </div>
-                          <div className="text-emerald-300 text-[11px]">
-                            <strong className="text-emerald-400">{isAr ? 'الإجراء التصحيحي: ' : 'Proposed Fix: '}</strong>
+                          <div className="text-amber-200 text-[11px]">
+                            <strong className="text-amber-300">{isAr ? 'الإجراء المقترح: ' : 'Recommended action: '}</strong>
                             {recovery.proposedFix}
+                          </div>
+                          <div className="text-slate-400 text-[10px] pt-1 border-t border-amber-900/40">
+                            {isAr
+                              ? 'لتطبيق التوصية أعد إصدار طلب الأداة عبر بوابة الأمان — لم يُنفَّذ أي فحص هنا.'
+                              : 'To act on this, re-issue the tool request through the security gateway. No scan was run here.'}
                           </div>
                         </div>
                       )}
@@ -630,47 +700,82 @@ export const OrchestratorDashboard: React.FC<OrchestratorDashboardProps> = ({ la
       {/* Tab Content: Agents Mesh */}
       {activeTab === 'agents_mesh' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {SYSTEM_AGENTS.map((agent) => (
-            <div
-              key={agent.id}
-              onClick={() => setSelectedAgentDetail(agent.id)}
-              className={`bg-slate-900/80 border rounded-xl p-4 space-y-3 cursor-pointer transition-all hover:scale-[1.01] ${
-                selectedAgentDetail === agent.id
-                  ? 'border-cyan-500 shadow-lg shadow-cyan-500/10'
-                  : 'border-slate-800 hover:border-slate-700'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className={`p-2 rounded-lg border ${agent.badgeColor}`}>
-                    {AGENT_ICON_MAP[agent.icon] || <Cpu className="w-4 h-4" />}
+          {SYSTEM_AGENTS.map((agent) => {
+            const live = registeredAgents[agent.id];
+            const isExecutable = Boolean(live);
+            return (
+              <div
+                key={agent.id}
+                onClick={() => setSelectedAgentDetail(agent.id)}
+                className={`bg-slate-900/80 border rounded-xl p-4 space-y-3 cursor-pointer transition-all hover:scale-[1.01] ${
+                  selectedAgentDetail === agent.id
+                    ? 'border-cyan-500 shadow-lg shadow-cyan-500/10'
+                    : 'border-slate-800 hover:border-slate-700'
+                } ${isExecutable ? '' : 'opacity-60'}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-2 rounded-lg border ${agent.badgeColor}`}>
+                      {AGENT_ICON_MAP[agent.icon] || <Cpu className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-100">{isAr ? agent.nameAr : agent.nameEn}</h4>
+                      <span className="text-[10px] font-mono text-cyan-400">@{agent.id}</span>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-100">{isAr ? agent.nameAr : agent.nameEn}</h4>
-                    <span className="text-[10px] font-mono text-cyan-400">@{agent.id}</span>
-                  </div>
-                </div>
-              </div>
 
-              <p className="text-xs text-slate-400 leading-relaxed">
-                {isAr ? agent.roleDescriptionAr : agent.roleDescriptionEn}
-              </p>
-
-              <div className="space-y-1.5 pt-2 border-t border-slate-800">
-                <div className="text-[11px] font-mono text-slate-500">{isAr ? 'الأدوات المرتبطة:' : 'Tools:'}</div>
-                <div className="flex flex-wrap gap-1">
-                  {agent.tools.map((tool, idx) => (
-                    <span
-                      key={idx}
-                      className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800"
-                    >
-                      {tool}
+                  {/* Truth badge: the backend decides, not this catalog. */}
+                  {isExecutable ? (
+                    <span className="shrink-0 text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
+                      {isAr ? 'قابل للتنفيذ' : 'EXECUTABLE'}
                     </span>
-                  ))}
+                  ) : (
+                    <span className="shrink-0 text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-950 text-slate-400 border border-slate-700">
+                      {isAr ? 'غير مُنفَّذ' : 'NOT IMPLEMENTED'}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  {isAr ? agent.roleDescriptionAr : agent.roleDescriptionEn}
+                </p>
+
+                <div className="space-y-1.5 pt-2 border-t border-slate-800">
+                  <div className="text-[11px] font-mono text-slate-500">
+                    {isExecutable
+                      ? (isAr ? 'الأدوات المسموح بها فعلياً:' : 'Tools it may actually request:')
+                      : (isAr ? 'أدوات مخطط لها (غير متاحة):' : 'Planned tools (not available):')}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {(isExecutable ? live.allowedTools : agent.tools).map((tool, idx) => (
+                      <span
+                        key={idx}
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                          isExecutable
+                            ? 'bg-slate-950 text-slate-300 border-slate-800'
+                            : 'bg-slate-950/50 text-slate-500 border-slate-800/60 line-through'
+                        }`}
+                      >
+                        {tool}
+                      </span>
+                    ))}
+                    {isExecutable && live.allowedTools.length === 0 && (
+                      <span className="text-[10px] font-mono text-slate-500">
+                        {isAr ? 'لا أدوات — يراجع الأدلة فقط' : 'no tools — reviews evidence only'}
+                      </span>
+                    )}
+                  </div>
+                  {!isExecutable && (
+                    <p className="text-[10px] text-slate-500 pt-1">
+                      {isAr
+                        ? 'هذا الوكيل مُعرَّف في الكتالوج فقط ولن ينفّذه المنسّق.'
+                        : 'Catalog entry only — the orchestrator will not dispatch to it.'}
+                    </p>
+                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
