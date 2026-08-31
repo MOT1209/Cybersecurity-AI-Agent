@@ -23,7 +23,7 @@ import type { AgentResult } from "../base";
 import type { AgentDescriptor, AgentRunContext } from "../types";
 import { validateSecurityGateway } from "../../core/gateway";
 import { executeTool } from "../../sandbox/index";
-import { ApprovalRequiredError, GatewayDeniedError } from "../../sandbox/index";
+import { ApprovalRequiredError } from "../../sandbox/index";
 import { ToolNotRegisteredError } from "../../core/errors";
 import { isToolRegistered, hasAdapter, getToolDescriptor } from "../../tools/registry";
 import { resolveWorkspacePath } from "../../security/workspace";
