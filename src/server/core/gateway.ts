@@ -14,13 +14,25 @@ import {
   addAuditLog,
 } from "./store";
 import { extractHost, matchesAnyScope, isPrivateOrLabHost } from "./scope";
+import { getToolDescriptor } from "../tools/registry";
+import { policyFor, isCriticalToolEnabled } from "../security/policy";
+import type { RiskLevel } from "../tools/types";
 
 export interface GatewayDecision {
   isAllowed: boolean;
   reason: string;
-  riskLevel: "LOW" | "HIGH" | "CRITICAL";
+  riskLevel: RiskLevel;
   humanApprovalRequired: boolean;
   scopeValidation: "IN_SCOPE" | "OUT_OF_SCOPE";
+  /** Ordered record of every check the request passed or failed. */
+  checks: GatewayCheck[];
+  sandboxRequired: boolean;
+}
+
+export interface GatewayCheck {
+  name: string;
+  passed: boolean;
+  detail: string;
 }
 
 /**
@@ -36,51 +48,117 @@ export function validateSecurityGateway(
 ): GatewayDecision {
   const project = projectsStore.find((p) => p.id === projectId) || projectsStore[0];
   const host = extractHost(target);
+  const checks: GatewayCheck[] = [];
 
-  // 1. Check Out of Scope (blocklist) — strict host/IP/CIDR/wildcard match.
-  //    Evaluated first, so an explicitly denied host is rejected even if it
-  //    would otherwise qualify as a private/lab address.
-  if (matchesAnyScope(host, project.outOfScope)) {
-    addAuditLog("SecurityGateway", `EXECUTE_${toolName.toUpperCase()}`, target, "DENIED", "Target matches explicit out-of-scope restriction");
+  // Risk comes from the tool registry, not from a hardcoded name list and not
+  // from anything the caller (or a model) can influence. An unregistered tool
+  // is treated as CRITICAL so the most restrictive policy applies.
+  const descriptor = getToolDescriptor(toolName.toLowerCase());
+  const riskLevel: RiskLevel = descriptor?.riskLevel ?? "CRITICAL";
+  const policy = policyFor(riskLevel);
+  const sandboxRequired = descriptor?.sandboxRequired ?? true;
+
+  const deny = (
+    name: string,
+    detail: string,
+    reason: string,
+    scopeValidation: GatewayDecision["scopeValidation"],
+  ): GatewayDecision => {
+    checks.push({ name, passed: false, detail });
+    addAuditLog("SecurityGateway", `EXECUTE_${toolName.toUpperCase()}`, target, "DENIED", detail);
     return {
       isAllowed: false,
-      reason: `SECURITY GATEWAY REJECTED: Target "${target}" is explicitly in the OUT-OF-SCOPE list for this project engagement.`,
-      riskLevel: "CRITICAL",
+      reason,
+      riskLevel,
       humanApprovalRequired: false,
-      scopeValidation: "OUT_OF_SCOPE",
+      scopeValidation,
+      checks,
+      sandboxRequired,
     };
-  }
+  };
 
-  // 2. Check In Scope (allowlist) — exact allowlist/targetIps match, or a
-  //    private/lab host. Substring tricks like "192.168.1.50.attacker.com" or
-  //    "target-corp.com.evil.net" no longer pass.
+  // 1. Explicit deny-list first: a denied host is rejected even when it would
+  //    otherwise qualify as a private/lab address.
+  if (matchesAnyScope(host, project.outOfScope)) {
+    return deny(
+      "target-denylist",
+      "Target matches explicit out-of-scope restriction",
+      `SECURITY GATEWAY REJECTED: Target "${target}" is explicitly in the OUT-OF-SCOPE list for this project engagement.`,
+      "OUT_OF_SCOPE",
+    );
+  }
+  checks.push({ name: "target-denylist", passed: true, detail: "Target is not on the project deny-list." });
+
+  // 2. Allow-list: exact allowlist/targetIps match, or a private/lab host.
+  //    Substring tricks like "192.168.1.50.attacker.com" do not pass.
   const isInScope =
     matchesAnyScope(host, project.inScope) ||
     matchesAnyScope(host, project.targetIps) ||
     isPrivateOrLabHost(host);
-
   if (!isInScope) {
-    addAuditLog("SecurityGateway", `EXECUTE_${toolName.toUpperCase()}`, target, "DENIED", "Unauthorized external target outside designated engagement scope");
-    return {
-      isAllowed: false,
-      reason: `SECURITY GATEWAY ENFORCEMENT: Target "${target}" is NOT registered in the authorized target allowlist. Engagement scope strictly enforces lab/authorized hosts.`,
-      riskLevel: "HIGH",
-      humanApprovalRequired: false,
-      scopeValidation: "OUT_OF_SCOPE",
-    };
+    return deny(
+      "target-allowlist",
+      "Unauthorized external target outside designated engagement scope",
+      `SECURITY GATEWAY ENFORCEMENT: Target "${target}" is NOT registered in the authorized target allowlist. Engagement scope strictly enforces lab/authorized hosts.`,
+      "OUT_OF_SCOPE",
+    );
   }
+  checks.push({ name: "target-allowlist", passed: true, detail: `Host "${host}" is inside the authorized scope.` });
 
-  // 3. Tool Specific Risk Check
-  const highRiskTools = ["zap", "active_exploit", "bruteforce", "metasploit"];
-  const requiresApproval = highRiskTools.includes(toolName.toLowerCase());
+  // 3. Project tool permission. Previously declared but never enforced.
+  const allowedTools = (project.allowedTools ?? []).map((t) => t.toLowerCase());
+  if (allowedTools.length && !allowedTools.includes(toolName.toLowerCase())) {
+    return deny(
+      "project-tool-permission",
+      `Tool "${toolName}" is not permitted for project ${project.id}`,
+      `SECURITY GATEWAY ENFORCEMENT: Tool "${toolName}" is not in the allowed tool list for project "${project.id}".`,
+      "IN_SCOPE",
+    );
+  }
+  checks.push({ name: "project-tool-permission", passed: true, detail: `Tool "${toolName}" is permitted for this project.` });
 
-  addAuditLog("SecurityGateway", `EXECUTE_${toolName.toUpperCase()}`, target, "ALLOWED", `Security policies satisfied. Sandbox execution granted for ${toolName}.`);
+  // 4. Risk policy. CRITICAL is disabled unless explicitly enabled, and then
+  //    only against a lab/private target.
+  if (policy.disabledByDefault && !isCriticalToolEnabled(toolName)) {
+    return deny(
+      "risk-policy",
+      `${riskLevel}-risk tool "${toolName}" is disabled by default`,
+      `SECURITY GATEWAY ENFORCEMENT: Tool "${toolName}" is classified ${riskLevel} and is disabled by default. Enable it explicitly via ENABLE_CRITICAL_TOOLS for controlled lab use.`,
+      "IN_SCOPE",
+    );
+  }
+  if (policy.labOnly && !isPrivateOrLabHost(host)) {
+    return deny(
+      "risk-policy-lab-only",
+      `${riskLevel}-risk tool "${toolName}" may only run against a lab/private target`,
+      `SECURITY GATEWAY ENFORCEMENT: Tool "${toolName}" is ${riskLevel} risk and is restricted to lab/private targets.`,
+      "IN_SCOPE",
+    );
+  }
+  checks.push({ name: "risk-policy", passed: true, detail: `Risk ${riskLevel} permitted under the active policy.` });
+
+  const requiresApproval = policy.requiresApproval || project.policy?.requireApprovalForHighRisk === true && riskLevel === "HIGH";
+  checks.push({
+    name: "approval-requirement",
+    passed: true,
+    detail: requiresApproval ? "Explicit human approval is required." : "No approval required at this risk level.",
+  });
+
+  addAuditLog(
+    "SecurityGateway",
+    `EXECUTE_${toolName.toUpperCase()}`,
+    target,
+    "ALLOWED",
+    `Security policies satisfied (risk=${riskLevel}, approval=${requiresApproval}). Sandbox execution granted for ${toolName}.`,
+  );
   return {
     isAllowed: true,
     reason: `Target in authorized scope. Sandbox permissions verified for ${toolName}.`,
-    riskLevel: requiresApproval ? "HIGH" : "LOW",
+    riskLevel,
     humanApprovalRequired: requiresApproval,
     scopeValidation: "IN_SCOPE",
+    checks,
+    sandboxRequired,
   };
 }
 

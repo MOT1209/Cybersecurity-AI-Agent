@@ -112,6 +112,35 @@ The platform will not report a success that did not happen.
   `retestStatus: "UNVERIFIED"` and confidence `0`. Only findings produced by a
   real tool run are presented as observed.
 
+### Risk policy & human approval
+Risk is read from the tool registry — never from a name list, a request body, or
+a model. `src/server/security/policy.ts` maps it to what the platform will do:
+
+| Risk | Policy |
+|---|---|
+| LOW / MEDIUM | may run automatically; sandboxed and fully logged |
+| HIGH | explicit human approval required |
+| CRITICAL | disabled by default, lab/private targets only, and only when listed in `ENABLE_CRITICAL_TOOLS` |
+
+An unregistered tool is treated as CRITICAL, so the most restrictive policy
+applies to anything unknown.
+
+**A caller cannot approve its own request.** There is no `approved: true` flag.
+Instead:
+
+1. `POST /api/tools/execute` on a gated tool returns `428` **and opens a real
+   approval request**, returning its `approvalId`.
+2. A human calls `POST /api/approvals/:id/decision` with
+   `{ "decision": "APPROVED", "decidedBy": "<operator>" }`. `decidedBy` must
+   differ from the requester, or the API answers `409`.
+3. The response carries a single-use `approvalToken`, bound to that exact
+   tool + target and burned on redemption.
+4. `POST /api/tools/execute` with that `approvalToken` runs once.
+
+The gateway also enforces the project's `allowedTools` list, which V1 declared
+but never checked, and returns an ordered `checks[]` record of every decision it
+made.
+
 > ⚠️ **State is in-memory.** Projects, audit logs and circuit breakers reset on
 > every restart and are not shared across instances. Do not run more than one
 > replica until a persistent store is added.

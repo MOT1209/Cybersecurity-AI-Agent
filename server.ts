@@ -24,6 +24,11 @@ import { listTools } from "./src/server/tools/registry";
 import { checkAllToolHealth, checkToolHealth } from "./src/server/tools/health";
 import { agentManager } from "./src/server/agents/index";
 import { listEvents } from "./src/server/core/events";
+import {
+  createApprovalRequest,
+  decideApproval,
+  listApprovals,
+} from "./src/server/security/approvals";
 import { runMission, buildOrchestratedMultiAgentPlan } from "./src/server/orchestrator/index";
 import { ZodError } from "zod";
 
@@ -281,6 +286,43 @@ export async function createApp() {
     }
   });
 
+  // --- Human approval system (§15) ---
+
+  /** Pending and decided approval requests. Tokens are never exposed here. */
+  app.get("/api/approvals", (_req, res) => {
+    res.json({ approvals: listApprovals() });
+  });
+
+  /**
+   * Record a human decision. `decidedBy` must differ from the requester, so an
+   * automated caller cannot approve its own request. On approval the response
+   * carries a single-use token bound to that exact tool+target.
+   */
+  app.post("/api/approvals/:id/decision", (req, res) => {
+    const idCheck = validateStringField(req.params.id, "id", 100, true);
+    if (!idCheck.valid) {
+      return res.status(400).json({ error: "VALIDATION_ERROR", message: idCheck.error });
+    }
+    const byCheck = validateStringField(req.body?.decidedBy, "decidedBy", 200, true);
+    if (!byCheck.valid) {
+      return res.status(400).json({ error: "VALIDATION_ERROR", message: byCheck.error });
+    }
+    const decision = req.body?.decision;
+    if (decision !== "APPROVED" && decision !== "REJECTED") {
+      return res.status(400).json({ error: "VALIDATION_ERROR", message: "Field 'decision' must be APPROVED or REJECTED." });
+    }
+
+    const result = decideApproval(req.params.id, decision, req.body.decidedBy);
+    if (!result.ok) {
+      return res.status(409).json({ error: "APPROVAL_CONFLICT", message: result.error });
+    }
+    return res.json({
+      approval: { ...result.approval, token: undefined },
+      // Present exactly once. Redeeming it burns it.
+      approvalToken: result.approval.token,
+    });
+  });
+
   // --- Platform introspection: tools, agents, runs, events (§29/§31/§32) ---
 
   /** Tool registry listing. `implemented` distinguishes a real adapter from a
@@ -341,7 +383,7 @@ export async function createApp() {
       return res.status(400).json({ error: "VALIDATION_ERROR", message: projectCheck.error });
     }
 
-    const { toolId, target = "192.168.1.50", params = {}, projectId = "proj_alpha_lab", approved = false } = req.body;
+    const { toolId, target = "192.168.1.50", params = {}, projectId = "proj_alpha_lab", approvalToken } = req.body;
 
     try {
       let executionResult;
@@ -355,12 +397,12 @@ export async function createApp() {
           image: nmapReq.image,
           params: nmapReq.params,
           projectId,
-          approved: approved === true,
+          approvalToken,
         });
         executionResult = summarizeNmapResult(raw);
       } else {
         // Tools without a dedicated adapter run in the simulation executor.
-        executionResult = await executeTool({ toolId, target, params, projectId, approved: approved === true });
+        executionResult = await executeTool({ toolId, target, params, projectId, approvalToken });
       }
       return res.json(executionResult);
     } catch (err) {
@@ -368,7 +410,26 @@ export async function createApp() {
         return res.status(403).json({ error: "BLOCKED_BY_GATEWAY", message: err.decision.reason });
       }
       if (err instanceof ApprovalRequiredError) {
-        return res.status(428).json({ error: "APPROVAL_REQUIRED", message: err.decision.reason, humanApprovalRequired: true });
+        // Open an approval request so a human has something concrete to act on,
+        // and hand back its id. The caller cannot approve it itself.
+        const approval = createApprovalRequest({
+          task: `Execute ${toolId} against ${target}`,
+          target,
+          toolId,
+          reason: err.detail || "Risk policy requires explicit human approval.",
+          scope: projectId,
+          riskLevel: err.decision.riskLevel,
+          expectedImpact: `Runs the "${toolId}" security tool inside the sandbox against ${target}.`,
+          projectId,
+          requestedBy: "api-client",
+        });
+        return res.status(428).json({
+          error: "APPROVAL_REQUIRED",
+          message: err.message,
+          humanApprovalRequired: true,
+          approvalId: approval.id,
+          approval: { ...approval, token: undefined },
+        });
       }
       if (err instanceof ToolNotRegisteredError) {
         return res.status(400).json({ error: err.code, message: err.message });

@@ -14,6 +14,7 @@ import {
   validateSecurityGateway,
 } from "../src/server/core/index";
 import { executeTool, ApprovalRequiredError, GatewayDeniedError } from "../src/server/sandbox/index";
+import { createApprovalRequest, decideApproval } from "../src/server/security/approvals";
 
 describe("scope primitives", () => {
   it("extracts the bare host from URLs with scheme/port/path", () => {
@@ -65,13 +66,27 @@ describe("human-approval enforcement", () => {
       executeTool({ toolId: "zap", target: "192.168.1.50" }),
     ).rejects.toBeInstanceOf(ApprovalRequiredError);
   });
-  it("runs the high-risk tool once approval is granted", async () => {
-    const res = await executeTool({ toolId: "zap", target: "192.168.1.50", approved: true });
+  it("runs the high-risk tool once a human has granted a token", async () => {
+    const req = createApprovalRequest({
+      task: "dast", target: "192.168.1.50", toolId: "zap", reason: "authorized test",
+      scope: "proj_alpha_lab", riskLevel: "HIGH", expectedImpact: "active web scan",
+      projectId: "proj_alpha_lab", requestedBy: "api-client",
+    });
+    const decision = decideApproval(req.id, "APPROVED", "human-operator");
+    expect(decision.ok).toBe(true);
+    const res = await executeTool({
+      toolId: "zap", target: "192.168.1.50", approvalToken: decision.approval!.token,
+    });
     expect(res.status).toBe("SUCCESS");
   });
   it("still denies a high-risk tool out of scope regardless of approval", async () => {
+    const req = createApprovalRequest({
+      task: "dast", target: "8.8.8.8", toolId: "zap", reason: "x", scope: "proj_alpha_lab",
+      riskLevel: "HIGH", expectedImpact: "x", projectId: "proj_alpha_lab", requestedBy: "api-client",
+    });
+    const decision = decideApproval(req.id, "APPROVED", "human-operator");
     await expect(
-      executeTool({ toolId: "zap", target: "8.8.8.8", approved: true }),
+      executeTool({ toolId: "zap", target: "8.8.8.8", approvalToken: decision.approval!.token }),
     ).rejects.toBeInstanceOf(GatewayDeniedError);
   });
 });

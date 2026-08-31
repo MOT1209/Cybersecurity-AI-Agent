@@ -10,6 +10,8 @@
 
 import { validateSecurityGateway, addAuditLog } from "../core/index";
 import { emitEvent } from "../core/events";
+import { consumeApproval } from "../security/approvals";
+import type { ApprovalOutcome } from "../security/approvals";
 import { ToolNotAvailableError, ToolNotRegisteredError } from "../core/errors";
 import { isToolRegistered, hasAdapter } from "../tools/registry";
 import type { GatewayDecision } from "../core/gateway";
@@ -36,8 +38,14 @@ export class GatewayDeniedError extends Error {
  * to proceed. Map to HTTP 428 (Precondition Required) at the route.
  */
 export class ApprovalRequiredError extends Error {
-  constructor(public readonly decision: GatewayDecision) {
-    super(`Human approval required before executing this high-risk tool: ${decision.reason}`);
+  constructor(
+    public readonly decision: GatewayDecision,
+    public readonly detail?: string,
+  ) {
+    super(
+      `Human approval required before executing this ${decision.riskLevel}-risk tool` +
+        (detail ? `: ${detail}` : "."),
+    );
     this.name = "ApprovalRequiredError";
   }
 }
@@ -95,8 +103,13 @@ export interface ExecuteToolParams {
   params?: Record<string, unknown>;
   projectId?: string;
   actor?: string;
-  /** Recorded human approval, required for high-risk tools. */
-  approved?: boolean;
+  /**
+   * Single-use approval token minted by the approval system after a human
+   * decision. Required for any tool the risk policy gates on approval.
+   * A boolean flag is deliberately NOT accepted — a caller must not be able to
+   * authorize its own request.
+   */
+  approvalToken?: string;
   /** Correlates this run with the mission/agent that requested it. */
   traceId?: string;
 }
@@ -130,16 +143,21 @@ export async function executeTool(p: ExecuteToolParams): Promise<ToolRunResult> 
     throw new GatewayDeniedError(decision);
   }
   // Enforce human-in-the-loop for high-risk tools instead of only flagging it.
-  if (decision.humanApprovalRequired && p.approved !== true) {
-    addAuditLog(
-      p.actor || "ToolManager",
-      `BLOCKED_${p.toolId.toUpperCase()}`,
-      p.target,
-      "APPROVAL_REQUIRED",
-      `High-risk tool "${p.toolId}" blocked pending explicit human approval.`,
-    );
-    emitEvent("TOOL_DENIED", { traceId, toolId: p.toolId, target: p.target, detail: "approval required" });
-    throw new ApprovalRequiredError(decision);
+  if (decision.humanApprovalRequired) {
+    const redeemed: ApprovalOutcome = p.approvalToken
+      ? consumeApproval(p.approvalToken, p.toolId, p.target)
+      : { ok: false, error: "No approval token supplied." };
+    if (!redeemed.ok) {
+      addAuditLog(
+        p.actor || "ToolManager",
+        `BLOCKED_${p.toolId.toUpperCase()}`,
+        p.target,
+        "APPROVAL_REQUIRED",
+        `${decision.riskLevel}-risk tool "${p.toolId}" blocked: ${redeemed.error}`,
+      );
+      emitEvent("TOOL_DENIED", { traceId, toolId: p.toolId, target: p.target, detail: redeemed.error });
+      throw new ApprovalRequiredError(decision, redeemed.error);
+    }
   }
 
   // A registered tool with no adapter cannot produce a real result. Saying so
