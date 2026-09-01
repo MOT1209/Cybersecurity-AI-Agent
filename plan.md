@@ -40,7 +40,7 @@ Tests grew from **48 → 253** across the migration.
 | 12 | `96caaa1` | Tool Registry / Findings / Approvals pages |
 | 13 | `f21cf7e` | Remediation + Reporting + Testing agents (pipeline complete) |
 | 14 | `986a5d8` | Lab Manager: isolated vulnerable targets + Lab Targets page |
-| 15 | *(this session)* | Knowledge base: cited BM25 retrieval over the security corpus |
+| 15 | `9ffd4a2` | Knowledge base: cited BM25 retrieval over the security corpus |
 
 ### Security properties now enforced in code, not prose
 
