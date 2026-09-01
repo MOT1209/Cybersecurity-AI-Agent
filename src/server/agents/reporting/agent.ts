@@ -137,6 +137,13 @@ function renderFinding(f: Finding, index: number, isAr: boolean): string {
       lines.push("");
       lines.push(`*${isAr ? "التحقق" : "Verify"}: ${f.remediation.verificationInstructions}*`);
     }
+    // Only what the retriever actually returned. An empty list prints nothing
+    // rather than a reassuring "based on OWASP guidance".
+    if (f.remediation.references?.length) {
+      lines.push("");
+      lines.push(`**${isAr ? "المراجع" : "References"}**`);
+      for (const ref of f.remediation.references) lines.push(`- ${ref}`);
+    }
     lines.push("");
   }
   lines.push(`<sub>${f.id}</sub>`);

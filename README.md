@@ -241,6 +241,29 @@ than pretending.
 
 ---
 
+## 📚 Cited retrieval
+
+`src/server/knowledge/` builds a corpus from the OWASP and MITRE material that
+already ships in `src/data/cyberData.ts` — seeded locally, never fetched at
+runtime — and retrieves over it with BM25. No embeddings, no API key, so it
+works offline and behaves the same way every run.
+
+- **Provenance is part of the type.** A chunk cannot exist without its source,
+  and every result carries a citation plus the file it came from.
+- **A weak match is dropped, not returned.** Below the score floor, retrieval
+  answers with nothing. A four-word query that overlaps on one common word gets
+  no citation at all.
+- **Knowledge is context, never evidence.** The Validation agent reads it as
+  background about a vulnerability class; there is no path by which it can raise
+  a confidence or promote a status. Remediation citations come from the
+  retriever alone — the model is shown the material but never names a source.
+
+CTF scenarios are excluded on purpose: they carry flags and full solutions.
+There is no CWE text, because this repository has no CWE corpus — CWE ids are
+indexed for exact lookup instead of being given invented descriptions.
+
+---
+
 ## 🖥️ What the UI shows
 
 The dashboard reflects backend truth rather than a static catalog:

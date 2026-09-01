@@ -49,6 +49,12 @@ export interface Remediation {
   codeFix?: string;
   configPatch?: string;
   verificationInstructions?: string;
+  /**
+   * Citations for the reference material this guidance was written against,
+   * e.g. "OWASP A03:2021 — Injection (prevention/ar)". Guidance the platform
+   * cannot attribute travels with an empty list rather than an invented source.
+   */
+  references?: string[];
 }
 
 export interface Finding {

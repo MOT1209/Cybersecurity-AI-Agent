@@ -23,6 +23,8 @@ import type { AgentResult } from "../base";
 import type { AgentDescriptor, AgentRunContext } from "../types";
 import { getFinding, listFindings, attachRemediation } from "../../findings/engine";
 import type { Finding, Remediation } from "../../findings/types";
+import { retrieveForFinding, citationsFor, formatForPrompt } from "../../knowledge";
+import type { RetrievedChunk } from "../../knowledge";
 
 export interface RemediationInput {
   findingIds?: string[];
@@ -62,6 +64,7 @@ export const RemediationOutputSchema = z.object({
         codeFix: z.string().optional(),
         configPatch: z.string().optional(),
         verificationInstructions: z.string().optional(),
+        references: z.array(z.string()).optional(),
       }),
     }),
   ),
@@ -176,8 +179,14 @@ const GENERIC_PLAYBOOK: Playbook = {
   verificationInstructions: "Re-run the tool that produced this finding and confirm it no longer reports it.",
 };
 
-/** Choose the most specific deterministic playbook available. */
-export function baselineRemediation(f: Finding): Remediation {
+/**
+ * Choose the most specific deterministic playbook available.
+ *
+ * `references` are citations produced by the retriever. They are passed in
+ * rather than looked up here so that the only source of a citation is the
+ * corpus itself — neither this function nor the model can mint one.
+ */
+export function baselineRemediation(f: Finding, references: string[] = []): Remediation {
   const byCwe = f.cwe.map((c) => CWE_PLAYBOOKS[c.split(":")[0].trim()]).find(Boolean);
   const play = byCwe ?? TOOL_PLAYBOOKS[f.toolUsed] ?? GENERIC_PLAYBOOK;
   const confirmed = f.validation.status === "CONFIRMED";
@@ -193,6 +202,7 @@ export function baselineRemediation(f: Finding): Remediation {
     codeFix: play.codeFix,
     configPatch: play.configPatch,
     verificationInstructions: play.verificationInstructions,
+    references,
   };
 }
 
@@ -252,9 +262,19 @@ export class RemediationAgent extends BaseAgent {
       ? parsed.findingIds.map((id) => getFinding(id)).filter((f): f is Finding => !!f)
       : listFindings({ projectId, traceId: parsed.traceId ?? ctx?.traceId });
 
+    // Reference material for each finding's vulnerability class, retrieved from
+    // the local corpus. Citations come from here and nowhere else: the model is
+    // shown the material but never gets to name a source of its own.
+    const retrieved = new Map<string, RetrievedChunk[]>();
+    for (const f of targets) {
+      retrieved.set(f.id, retrieveForFinding({ title: f.title, cwe: f.cwe }, { limit: 3 }));
+    }
+
     // Deterministic baseline first — this is what ships if no model answers.
     const baselines = new Map<string, Remediation>();
-    for (const f of targets) baselines.set(f.id, baselineRemediation(f));
+    for (const f of targets) {
+      baselines.set(f.id, baselineRemediation(f, citationsFor(retrieved.get(f.id) ?? [])));
+    }
 
     const context = JSON.stringify(
       targets.map((f) => ({
@@ -269,8 +289,17 @@ export class RemediationAgent extends BaseAgent {
       })),
     );
 
+    // Per-finding citations stay exact; the shared prompt block is de-duplicated
+    // and capped so a large run does not paste the whole corpus into a prompt.
+    const seen = new Set<string>();
+    const references = formatForPrompt(
+      [...retrieved.values()]
+        .flat()
+        .filter((r) => (seen.has(r.chunk.id) ? false : (seen.add(r.chunk.id), true)))
+        .slice(0, 12),
+    );
     const reasoning = await this.reason<ModelRemediations>(
-      context,
+      `${context}\n\n--- Reference material (class background, cite nothing else) ---\n${references}`,
       REMEDIATION_INSTRUCTION,
       REMEDIATION_SCHEMA_HINT,
       () => ({ items: [] }),
@@ -304,6 +333,10 @@ export class RemediationAgent extends BaseAgent {
           typeof m?.verificationInstructions === "string" && m.verificationInstructions.trim()
             ? m.verificationInstructions
             : base.verificationInstructions,
+        // Citations are re-derived from the retriever, never taken from the
+        // model. A model that invents a plausible-looking source is the exact
+        // failure this module exists to prevent.
+        references: base.references,
       };
 
       attachRemediation(f.id, remediation);
