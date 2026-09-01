@@ -22,6 +22,7 @@ import { ToolNotAvailableError, ToolNotRegisteredError } from "./src/server/core
 import { listTools, getToolAdapter, getToolDescriptor } from "./src/server/tools/registry";
 import { resolveWorkspacePath } from "./src/server/security/workspace";
 import { listFindings, getFinding } from "./src/server/findings/engine";
+import { listLabStates, getLabState, startLab, stopLab } from "./src/server/labs/manager";
 import { initDatabase, databaseStatus } from "./src/server/database/index";
 import {
   resolvePrincipal,
@@ -330,6 +331,54 @@ export async function createApp() {
       const fallbackPlan = buildOrchestratedMultiAgentPlan(userPrompt, target, projectId);
       addAuditLog("LocalOrchestrator", "RUN_MISSION_FALLBACK", target, "COMPLETED", `Fallback plan after engine error: ${(err as Error).message}`);
       return res.json(fallbackPlan);
+    }
+  });
+
+  // --- Labs (§17) ---
+
+  /**
+   * Lab catalog with REAL container state, read from Docker. A lab whose
+   * container is gone reports STOPPED — never RUNNING by assumption.
+   */
+  app.get("/api/labs", async (_req, res) => {
+    res.json({ labs: await listLabStates() });
+  });
+
+  app.get("/api/labs/:id", async (req, res) => {
+    try {
+      res.json(await getLabState(req.params.id));
+    } catch (err) {
+      res.status(404).json({ error: "UNKNOWN_LAB", message: (err as Error).message });
+    }
+  });
+
+  /**
+   * Start a lab. The id must come from the fixed catalog: accepting an image
+   * reference here would be remote code execution by API.
+   */
+  app.post("/api/labs/:id/start", async (req, res) => {
+    const idCheck = validateStringField(req.params.id, "id", 100, true);
+    if (!idCheck.valid) {
+      return res.status(400).json({ error: "VALIDATION_ERROR", message: idCheck.error });
+    }
+    try {
+      res.json(await startLab(req.params.id, principalOf(req).id));
+    } catch (err) {
+      if (err instanceof ToolNotAvailableError) {
+        return res.status(503).json({ error: err.code, message: err.message, reason: err.detail });
+      }
+      return res.status(400).json({ error: "LAB_START_FAILED", message: (err as Error).message });
+    }
+  });
+
+  app.post("/api/labs/:id/stop", async (req, res) => {
+    try {
+      res.json(await stopLab(req.params.id, principalOf(req).id));
+    } catch (err) {
+      if (err instanceof ToolNotAvailableError) {
+        return res.status(503).json({ error: err.code, message: err.message, reason: err.detail });
+      }
+      return res.status(400).json({ error: "LAB_STOP_FAILED", message: (err as Error).message });
     }
   });
 

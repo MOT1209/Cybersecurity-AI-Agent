@@ -221,6 +221,26 @@ made.
 
 ---
 
+## 🧪 Lab targets
+
+Deliberately vulnerable applications (Juice Shop, DVWA, WebGoat) can be started
+as scan targets from a **fixed catalog**: `POST /api/labs/:id/start` takes a
+catalog id, never an image reference — accepting one would be remote code
+execution by API.
+
+| Rule | Why |
+|---|---|
+| No published host ports, ever | a vulnerable app reachable from the host is an incident, not a lab |
+| Internal sandbox network only | agents reach it at `http://<name>.lab:<port>`; nothing else can |
+| Unprivileged, no bind mounts, capped memory and pids | the target is hostile by design |
+| Status is read from `docker inspect` | a lab whose container is gone reports `STOPPED`, never `RUNNING` by assumption |
+
+With no Docker daemon, `/api/labs` still answers — every lab reads `STOPPED`
+with the real reason, and a start attempt returns `503 NOT_AVAILABLE` rather
+than pretending.
+
+---
+
 ## 🖥️ What the UI shows
 
 The dashboard reflects backend truth rather than a static catalog:
@@ -232,6 +252,7 @@ The dashboard reflects backend truth rather than a static catalog:
 | **Approvals** | `GET /api/approvals` | send a `decidedBy` (the server uses the authenticated principal) or re-show a granted token, which is displayed once and burned on use |
 | **Agents mesh** | `GET /api/agents` | render the twelve-agent catalog as live — each card is labelled `EXECUTABLE` or `NOT IMPLEMENTED` |
 | **Error Recovery** | `GET /api/error-recovery/events` | claim a retry happened — it is labelled `DIAGNOSIS ONLY` and reports `RECOVERY_PROPOSED` |
+| **Lab Targets** | `GET /api/labs` | offer a host URL for a vulnerable app — only the sandbox-internal address is shown, and every status is read from Docker (a lab whose container is gone reads `STOPPED`) |
 
 ---
 

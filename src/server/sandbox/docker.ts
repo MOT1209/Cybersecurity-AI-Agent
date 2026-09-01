@@ -89,6 +89,14 @@ export class DockerExecutor implements ToolExecutor {
     }
   }
 
+  /**
+   * The underlying client, for callers that manage their own containers (the
+   * Lab Manager). Returns null when the driver could not be loaded.
+   */
+  async getDockerClient(): Promise<DockerodeType | null> {
+    return this.getDocker();
+  }
+
   /** True when the image already exists on the Docker host. */
   async hasImage(image: string): Promise<boolean> {
     const docker = await this.getDocker();

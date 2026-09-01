@@ -13,7 +13,8 @@ import {
   Lock,
   RotateCcw,
   Bug,
-  KeyRound
+  KeyRound,
+  FlaskConical
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -84,6 +85,13 @@ export const Navbar: React.FC<NavbarProps> = ({
       labelEn: 'Code SAST Auditor',
       icon: Code2,
       badge: 'Semgrep',
+    },
+    {
+      id: 'labs',
+      labelAr: 'أهداف المختبر المعزولة',
+      labelEn: 'Lab Targets',
+      icon: FlaskConical,
+      badge: 'Isolated',
     },
     {
       id: 'terminal',

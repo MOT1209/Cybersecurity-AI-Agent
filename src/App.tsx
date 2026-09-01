@@ -18,6 +18,7 @@ import { ErrorRecoveryCenter } from './components/ErrorRecoveryCenter';
 import { ToolRegistry } from './components/ToolRegistry';
 import { FindingsExplorer } from './components/FindingsExplorer';
 import { ApprovalsCenter } from './components/ApprovalsCenter';
+import { LabsManager } from './components/LabsManager';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CTFScenario } from './types';
 import { Shield } from 'lucide-react';
@@ -77,6 +78,7 @@ export default function App() {
             />
           )}
           {activeTab === 'auditor' && <CodeAuditor language={language} />}
+          {activeTab === 'labs' && <LabsManager language={language} />}
           {activeTab === 'terminal' && <InteractiveTerminalLab language={language} />}
           {activeTab === 'toolbox' && <CyberToolbox language={language} />}
           {activeTab === 'knowledge' && <KnowledgeBase language={language} />}
