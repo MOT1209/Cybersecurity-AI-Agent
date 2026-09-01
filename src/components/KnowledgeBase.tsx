@@ -11,6 +11,15 @@ import {
 import { OWASP_TOP_10, MITRE_TACTICS } from '../data/cyberData';
 import ReactMarkdown from 'react-markdown';
 
+interface CorpusHit {
+  id: string;
+  citation: string;
+  origin: string;
+  text: string;
+  score: number;
+  matchedTerms: string[];
+}
+
 interface KnowledgeBaseProps {
   language: 'ar' | 'en';
 }
@@ -56,6 +65,37 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ language }) => {
 
   const activeOwaspItem = OWASP_TOP_10.find((item) => item.id === selectedOwasp) || OWASP_TOP_10[0];
   const activeTacticItem = MITRE_TACTICS.find((t) => t.id === selectedTactic) || MITRE_TACTICS[0];
+
+  // Corpus search state. This queries the platform's OWN corpus via
+  // /api/knowledge/search — the same retrieval the agents use — so what a
+  // reader sees here is exactly what an agent would have been shown, with the
+  // same citations and the same refusal to answer when nothing matches.
+  const [corpusQuery, setCorpusQuery] = useState<string>('');
+  const [corpusHits, setCorpusHits] = useState<CorpusHit[] | null>(null);
+  const [corpusNote, setCorpusNote] = useState<string>('');
+  const [corpusLoading, setCorpusLoading] = useState<boolean>(false);
+
+  const handleCorpusSearch = async () => {
+    const q = corpusQuery.trim();
+    if (!q || corpusLoading) return;
+    setCorpusLoading(true);
+    try {
+      const res = await apiFetch(`/api/knowledge/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setCorpusHits([]);
+        setCorpusNote(data?.message || `HTTP ${res.status}`);
+        return;
+      }
+      setCorpusHits(data.results ?? []);
+      setCorpusNote(data.note ?? '');
+    } catch (err) {
+      setCorpusHits([]);
+      setCorpusNote((err as Error).message);
+    } finally {
+      setCorpusLoading(false);
+    }
+  };
 
   const popularCVEs = [
     'CVE-2021-44228 (Log4j RCE)',
@@ -112,6 +152,56 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ language }) => {
             {isAr ? 'مستكشف ثغرات CVE' : 'CVE Radar (AI)'}
           </button>
         </div>
+      </div>
+
+      {/* Corpus search: the platform's own retrieval, citations included. */}
+      <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 space-y-3">
+        <div className="flex items-center gap-2">
+          <Search className="w-4 h-4 text-cyan-400 shrink-0" />
+          <span className="text-xs font-semibold text-slate-300">
+            {isAr ? 'بحث في مرجع المنصة (بالمصادر)' : 'Search the platform corpus (cited)'}
+          </span>
+        </div>
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          {isAr
+            ? 'هذا هو نفس الاسترجاع الذي تقرأه الوكلاء. كل نتيجة تحمل مصدرها، وإن لم يطابق شيء بدرجة كافية فلن تُعرض نتيجة بدل تخمين قريب.'
+            : 'This is the same retrieval the agents read. Every result carries its source, and when nothing matches closely enough you get no result rather than a near-miss.'}
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={corpusQuery}
+            onChange={(e) => setCorpusQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleCorpusSearch()}
+            placeholder={isAr ? 'مثال: SQL injection أو CWE-89 أو T1595' : 'e.g. SQL injection, CWE-89, T1595'}
+            className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-700"
+          />
+          <button
+            onClick={handleCorpusSearch}
+            disabled={corpusLoading || !corpusQuery.trim()}
+            className="px-3.5 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 rounded-lg border border-slate-700 transition-colors"
+          >
+            {corpusLoading ? (isAr ? '...' : '...') : isAr ? 'ابحث' : 'Search'}
+          </button>
+        </div>
+
+        {corpusHits !== null && (
+          <div className="space-y-2">
+            <p className="text-[11px] text-slate-500">{corpusNote}</p>
+            {corpusHits.map((h) => (
+              <div key={h.id} className="bg-slate-950/60 border border-slate-800 rounded-lg p-3 space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-[11px] font-mono text-cyan-300">{h.citation}</span>
+                  <span className="text-[10px] font-mono text-slate-600 shrink-0">{h.score}</span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{h.text}</p>
+                {/* Where the text physically came from, so a claim can be traced. */}
+                <p className="text-[10px] font-mono text-slate-600">
+                  {h.origin} · {isAr ? 'طابق' : 'matched'}: {h.matchedTerms.join(', ')}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* SECTION 1: OWASP Top 10 */}

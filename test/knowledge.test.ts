@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import request from "supertest";
 import fs from "fs";
 import path from "path";
 
@@ -28,6 +29,7 @@ import {
   listFindings,
   resetFindings,
 } from "../src/server/findings/engine";
+import { createApp } from "../server";
 
 describe("corpus provenance", () => {
   it("gives every chunk a source, an origin and a citation", () => {
@@ -258,5 +260,41 @@ describe("remediation cites what it was written against", () => {
     expect(remediation.references).toEqual([]);
     expect(remediation.summary.length).toBeGreaterThan(0);
     expect(listFindings({ traceId: "t-rem2" })).toHaveLength(1);
+  });
+});
+
+describe("GET /api/knowledge/search", () => {
+  it("returns cited results for a real query", async () => {
+    const app = await createApp();
+    const res = await request(app).get("/api/knowledge/search?q=SQL%20injection").expect(200);
+
+    expect(res.body.count).toBeGreaterThan(0);
+    for (const r of res.body.results) {
+      expect(r.citation).toBeTruthy();
+      expect(r.origin).toMatch(/^src\/data\//);
+      expect(Array.isArray(r.matchedTerms)).toBe(true);
+      expect(r.text.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("says plainly that nothing matched instead of returning a near-miss", async () => {
+    const app = await createApp();
+    const res = await request(app).get("/api/knowledge/search?q=pizza%20recipe%20cheese").expect(200);
+
+    expect(res.body.count).toBe(0);
+    expect(res.body.results).toEqual([]);
+    expect(res.body.note).toMatch(/matched this query closely enough/i);
+  });
+
+  it("rejects an empty query rather than dumping the corpus", async () => {
+    const app = await createApp();
+    await request(app).get("/api/knowledge/search").expect(400);
+    await request(app).get("/api/knowledge/search?q=").expect(400);
+  });
+
+  it("caps the result count a caller can ask for", async () => {
+    const app = await createApp();
+    const res = await request(app).get("/api/knowledge/search?q=injection&limit=999").expect(200);
+    expect(res.body.results.length).toBeLessThanOrEqual(20);
   });
 });

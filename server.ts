@@ -23,6 +23,7 @@ import { listTools, getToolAdapter, getToolDescriptor } from "./src/server/tools
 import { resolveWorkspacePath } from "./src/server/security/workspace";
 import { listFindings, getFinding } from "./src/server/findings/engine";
 import { listLabStates, getLabState, startLab, stopLab } from "./src/server/labs/manager";
+import { retrieve as retrieveKnowledge } from "./src/server/knowledge";
 import { initDatabase, databaseStatus } from "./src/server/database/index";
 import {
   resolvePrincipal,
@@ -380,6 +381,45 @@ export async function createApp() {
       }
       return res.status(400).json({ error: "LAB_STOP_FAILED", message: (err as Error).message });
     }
+  });
+
+  // --- Knowledge base (§24) ---
+
+  /**
+   * Cited retrieval over the local security corpus. Every hit carries its
+   * source, its citation and the terms that matched; a query with no real
+   * overlap returns an empty list rather than the least-bad paragraph.
+   */
+  app.get("/api/knowledge/search", (req, res) => {
+    const q = typeof req.query.q === "string" ? req.query.q : "";
+    const check = validateStringField(q, "q", 500, true);
+    if (!check.valid) {
+      return res.status(400).json({ error: "VALIDATION_ERROR", message: check.error });
+    }
+    const limit = Math.max(1, Math.min(Number(req.query.limit) || 5, 20));
+    const hits = retrieveKnowledge(q, { limit });
+    res.json({
+      query: q,
+      count: hits.length,
+      // Said plainly, so an empty result is never read as a failed request.
+      note: hits.length
+        ? "Every result carries the source it came from."
+        : "Nothing in the local corpus matched this query closely enough to cite.",
+      results: hits.map((h) => ({
+        id: h.chunk.id,
+        citation: h.chunk.citation,
+        kind: h.chunk.source.kind,
+        ref: h.chunk.source.ref,
+        title: h.chunk.source.title,
+        origin: h.chunk.source.origin,
+        section: h.chunk.section,
+        language: h.chunk.language,
+        text: h.chunk.text,
+        cwe: h.chunk.cwe,
+        score: h.score,
+        matchedTerms: h.matchedTerms,
+      })),
+    });
   });
 
   // --- Findings (§18) ---

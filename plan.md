@@ -119,8 +119,8 @@ read-only root filesystem, a single tmpfs, and only stdout captured. So:
 - [ ] Commit: `feat(mcp): expose tools via MCP without bypassing the gateway`.
 
 ### Step D — Optional follow-ups
-- [ ] A `/api/knowledge/search` endpoint + wiring the Knowledge Base page to it,
-      so a human can query the same corpus the agents read.
+- [x] `GET /api/knowledge/search` + a search panel on the Knowledge Base page,
+      so a human can query the same corpus the agents read. *(done)*
 - [ ] Widen the corpus: it currently covers **A01–A05 only** (five of the OWASP
       Top 10) and four MITRE tactics, because that is all `src/data` contains.
 

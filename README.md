@@ -258,6 +258,10 @@ works offline and behaves the same way every run.
   a confidence or promote a status. Remediation citations come from the
   retriever alone — the model is shown the material but never names a source.
 
+Query it yourself at `GET /api/knowledge/search?q=...` — the Knowledge Base page
+has a search panel over the same endpoint, so a reader sees exactly what an agent
+would have been shown, citations included.
+
 CTF scenarios are excluded on purpose: they carry flags and full solutions.
 There is no CWE text, because this repository has no CWE corpus — CWE ids are
 indexed for exact lookup instead of being given invented descriptions.
@@ -275,6 +279,7 @@ The dashboard reflects backend truth rather than a static catalog:
 | **Approvals** | `GET /api/approvals` | send a `decidedBy` (the server uses the authenticated principal) or re-show a granted token, which is displayed once and burned on use |
 | **Agents mesh** | `GET /api/agents` | render the twelve-agent catalog as live — each card is labelled `EXECUTABLE` or `NOT IMPLEMENTED` |
 | **Error Recovery** | `GET /api/error-recovery/events` | claim a retry happened — it is labelled `DIAGNOSIS ONLY` and reports `RECOVERY_PROPOSED` |
+| **Knowledge Base** | `GET /api/knowledge/search` | present an uncited claim — each hit shows its citation, its origin file and the terms that matched, and "nothing matched" is shown as such |
 | **Lab Targets** | `GET /api/labs` | offer a host URL for a vulnerable app — only the sandbox-internal address is shown, and every status is read from Docker (a lab whose container is gone reads `STOPPED`) |
 
 ---
