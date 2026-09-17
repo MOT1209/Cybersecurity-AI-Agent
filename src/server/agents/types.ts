@@ -10,6 +10,7 @@
 import type { ZodTypeAny } from "zod";
 import type { RiskLevel } from "../tools/types";
 import type { AgentResult } from "./base";
+import type { RunMode } from "../runtime/index";
 
 export type AgentLifecycleState =
   | "IDLE"
@@ -54,6 +55,8 @@ export interface RunnableAgent {
 export interface AgentRunContext {
   traceId: string;
   projectId: string;
+  /** Operating posture of the run, e.g. learn | lab | execute | pair. */
+  mode?: RunMode;
   /** Aborted when the run times out or is cancelled. */
   signal?: AbortSignal;
 }

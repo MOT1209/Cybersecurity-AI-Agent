@@ -26,6 +26,7 @@ import {
 import { GatewayDeniedError } from "../sandbox/index";
 import { addAuditLog, emitEvent, listEvents } from "../core/index";
 import { buildOrchestratedMultiAgentPlan } from "./localPlan";
+import type { RunMode } from "../runtime/index";
 
 export { buildOrchestratedMultiAgentPlan } from "./localPlan";
 
@@ -34,6 +35,8 @@ export interface MissionInput {
   target: string;
   projectId?: string;
   language?: string;
+  /** Operating posture the mission runs under, if the caller chose one. */
+  mode?: RunMode;
 }
 
 const SYNTH_SCHEMA_HINT =
@@ -52,20 +55,20 @@ interface SynthResult {
  * scope (mapped to 403 by the route). Never throws for a tool/LLM failure.
  */
 export async function runMission(input: MissionInput) {
-  const { userPrompt, target, projectId = "proj_alpha_lab", language = "ar" } = input;
+  const { userPrompt, target, projectId = "proj_alpha_lab", language = "ar", mode } = input;
 
   // Deterministic template — the guaranteed-valid baseline and LLM fallback.
   const plan = buildOrchestratedMultiAgentPlan(userPrompt, target, projectId);
   const traceId: string = plan.traceId;
   emitEvent("TASK_CREATED", { traceId, projectId, target, detail: userPrompt.substring(0, 120) });
-  emitEvent("TASK_STARTED", { traceId, projectId, target });
+  emitEvent("TASK_STARTED", { traceId, projectId, target, data: { mode: mode ?? "execute" } });
 
   // --- Real Recon (nmap in the sandbox), dispatched via the Agent Manager ---
   // GatewayDeniedError / ToolNotAvailableError propagate to the route.
   const recon = await agentManager.dispatch<ReconData>(
     "recon",
     { target, projectId },
-    { projectId, traceId },
+    { projectId, traceId, mode },
   );
   const { openPorts, openPortCount, sandboxMode, analysis } = recon.data;
   const openList =

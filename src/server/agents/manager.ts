@@ -14,6 +14,7 @@ import { AgentNotRegisteredError, AgentRunError } from "../core/errors";
 import { addAuditLog } from "../core/store";
 import { emitEvent } from "../core/events";
 import { isToolRegistered } from "../tools/registry";
+import type { RunMode } from "../runtime/index";
 import type { AgentResult } from "./base";
 import type {
   AgentDescriptor,
@@ -25,6 +26,8 @@ import type {
 export interface DispatchOptions {
   projectId?: string;
   traceId?: string;
+  /** Operating posture of the run; threaded into the agent's context. */
+  mode?: RunMode;
   /** Overrides the agent's declared timeout. */
   timeoutMs?: number;
   /** Caller-owned cancellation. */
@@ -134,7 +137,7 @@ export class AgentManager {
       }, timeoutMs);
     });
 
-    const ctx: AgentRunContext = { traceId, projectId, signal: ctrl.signal };
+    const ctx: AgentRunContext = { traceId, projectId, mode: opts.mode, signal: ctrl.signal };
 
     try {
       const result = (await Promise.race([
