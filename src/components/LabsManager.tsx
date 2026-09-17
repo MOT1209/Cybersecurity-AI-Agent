@@ -35,6 +35,19 @@ interface LabsManagerProps {
 
 type LabStatus = 'RUNNING' | 'STOPPED' | 'STARTING' | 'UNKNOWN';
 
+/**
+ * The observation behind `status`. `RUNNING` means a probe saw the app answer;
+ * NOT_SERVING means one asked and did not; UNVERIFIED means no probe could run,
+ * which is neither of the other two and is shown as such.
+ */
+interface LabReadiness {
+  state: 'READY' | 'NOT_SERVING' | 'UNVERIFIED';
+  observedAt?: string;
+  evidence: string;
+  httpStatus?: number;
+  probeImage: string;
+}
+
 interface LabState {
   id: string;
   name: string;
@@ -44,8 +57,11 @@ interface LabState {
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
   hostname: string;
   status: LabStatus;
+  /** Container fact from `docker inspect`. null = could not be read. */
+  containerRunning: boolean | null;
   containerId?: string;
   internalUrl: string;
+  readiness: LabReadiness;
   detail: string;
   startedAt?: string;
 }
@@ -84,6 +100,27 @@ const STATUS_STYLE: Record<
   },
 };
 
+const READINESS_STYLE: Record<
+  LabReadiness['state'],
+  { className: string; labelAr: string; labelEn: string }
+> = {
+  READY: {
+    className: 'text-emerald-300 border-emerald-800/60 bg-emerald-950/50',
+    labelAr: 'مُثبَتة بفحص',
+    labelEn: 'Verified by probe',
+  },
+  NOT_SERVING: {
+    className: 'text-amber-300 border-amber-800/60 bg-amber-950/50',
+    labelAr: 'لا يجيب بعد',
+    labelEn: 'Not answering yet',
+  },
+  UNVERIFIED: {
+    className: 'text-rose-300 border-rose-800/60 bg-rose-950/50',
+    labelAr: 'لم تُتحقَّق',
+    labelEn: 'Unverified',
+  },
+};
+
 const DIFFICULTY_STYLE: Record<string, string> = {
   Beginner: 'text-emerald-300 border-emerald-800/60 bg-emerald-950/50',
   Intermediate: 'text-amber-300 border-amber-800/60 bg-amber-950/50',
@@ -98,8 +135,12 @@ export const LabsManager: React.FC<LabsManagerProps> = ({ language }) => {
   /** Per-lab in-flight action, so one card's spinner never speaks for another. */
   const [busy, setBusy] = useState<Record<string, 'start' | 'stop' | undefined>>({});
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
+  /**
+   * Read every lab's state. `quiet` skips the spinner, for the background
+   * refresh while a lab is still booting.
+   */
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setIsLoading(true);
     setError(null);
     try {
       const res = await apiFetch('/api/labs');
@@ -112,13 +153,25 @@ export const LabsManager: React.FC<LabsManagerProps> = ({ language }) => {
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setIsLoading(false);
+      if (!quiet) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  /**
+   * A lab that is booting is a moving target: `STARTING` is `RUNNING` a few
+   * seconds later. Refresh quietly until it settles, so the card shows the lab
+   * becoming ready instead of leaving one state on screen forever.
+   */
+  const anyStarting = labs.some((l) => l.status === 'STARTING');
+  useEffect(() => {
+    if (!anyStarting) return;
+    const timer = setInterval(() => load(true), 5000);
+    return () => clearInterval(timer);
+  }, [anyStarting, load]);
 
   /**
    * Start or stop one lab. On failure the server's own message is surfaced —
@@ -150,6 +203,7 @@ export const LabsManager: React.FC<LabsManagerProps> = ({ language }) => {
   }, []);
 
   const running = labs.filter((l) => l.status === 'RUNNING').length;
+  const starting = labs.filter((l) => l.status === 'STARTING').length;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -172,7 +226,7 @@ export const LabsManager: React.FC<LabsManagerProps> = ({ language }) => {
           </div>
 
           <button
-            onClick={load}
+            onClick={() => load()}
             disabled={isLoading}
             className="px-3.5 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition-colors flex items-center gap-2 shrink-0"
           >
@@ -181,14 +235,22 @@ export const LabsManager: React.FC<LabsManagerProps> = ({ language }) => {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6 pt-5 border-t border-slate-800/80">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-5 border-t border-slate-800/80">
           <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3">
             <span className="text-xs text-slate-400 block mb-1">{isAr ? 'في الفهرس' : 'In catalog'}</span>
             <span className="text-xl font-bold font-mono text-slate-200">{labs.length}</span>
           </div>
           <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3">
-            <span className="text-xs text-slate-400 block mb-1">{isAr ? 'قيد التشغيل الآن' : 'Running now'}</span>
+            <span className="text-xs text-slate-400 block mb-1">
+              {isAr ? 'يجيب فعلاً' : 'Serving now'}
+            </span>
             <span className="text-xl font-bold font-mono text-emerald-300">{running}</span>
+          </div>
+          <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3">
+            <span className="text-xs text-slate-400 block mb-1">
+              {isAr ? 'قيد الإقلاع (الحاوية تعمل)' : 'Booting (container up)'}
+            </span>
+            <span className="text-xl font-bold font-mono text-amber-300">{starting}</span>
           </div>
           <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3">
             <span className="text-xs text-slate-400 block mb-1">
@@ -225,7 +287,11 @@ export const LabsManager: React.FC<LabsManagerProps> = ({ language }) => {
         {labs.map((lab) => {
           const style = STATUS_STYLE[lab.status] ?? STATUS_STYLE.UNKNOWN;
           const pending = busy[lab.id];
-          const isRunning = lab.status === 'RUNNING';
+          // The buttons act on the container, the chips describe the service:
+          // `STARTING` means the container is up and must not be started again.
+          const containerUp = lab.containerRunning === true;
+          const readinessStyle =
+            READINESS_STYLE[lab.readiness?.state ?? 'UNVERIFIED'] ?? READINESS_STYLE.UNVERIFIED;
           return (
             <div key={lab.id} className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
               <div className="flex items-start justify-between gap-2">
@@ -272,7 +338,42 @@ export const LabsManager: React.FC<LabsManagerProps> = ({ language }) => {
                 <dd className={lab.containerId ? 'text-slate-300' : 'text-slate-600'}>
                   {lab.containerId ?? (isAr ? 'لا توجد' : 'none')}
                 </dd>
+
+                {/* Container state and service readiness are two facts; the
+                    status chip above only summarises them, so both are shown. */}
+                <dt className="text-slate-500">{isAr ? 'حالة الحاوية' : 'Container state'}</dt>
+                <dd className={containerUp ? 'text-emerald-300' : 'text-slate-400'}>
+                  {lab.containerRunning === null
+                    ? isAr
+                      ? 'تعذّرت القراءة'
+                      : 'unreadable'
+                    : containerUp
+                      ? isAr
+                        ? 'تعمل'
+                        : 'running'
+                      : isAr
+                        ? 'لا تعمل'
+                        : 'not running'}
+                </dd>
+
+                <dt className="text-slate-500">{isAr ? 'الجاهزية' : 'Readiness'}</dt>
+                <dd>
+                  <span
+                    className={`px-1.5 py-0.5 rounded border ${readinessStyle.className}`}
+                    title={lab.readiness?.evidence}
+                  >
+                    {isAr ? readinessStyle.labelAr : readinessStyle.labelEn}
+                  </span>
+                </dd>
               </dl>
+
+              {/* The probe's own account, shown verbatim when the two facts
+                  disagree — a running container that is not answering. */}
+              {containerUp && lab.readiness?.state !== 'READY' && (
+                <p className="text-[11px] text-amber-300/90 leading-relaxed border-l-2 border-amber-800/60 pl-2">
+                  {lab.readiness?.evidence}
+                </p>
+              )}
 
               <div className="text-[10px] font-mono text-slate-600 truncate" title={lab.image}>
                 {lab.image}
@@ -281,7 +382,7 @@ export const LabsManager: React.FC<LabsManagerProps> = ({ language }) => {
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => act(lab.id, 'start')}
-                  disabled={!!pending || isRunning}
+                  disabled={!!pending || containerUp}
                   className="flex-1 px-3 py-2 text-xs font-medium bg-emerald-950/60 hover:bg-emerald-900/60 disabled:opacity-40 disabled:hover:bg-emerald-950/60 text-emerald-300 rounded-lg border border-emerald-800/60 transition-colors flex items-center justify-center gap-1.5"
                 >
                   {pending === 'start' ? (
@@ -293,7 +394,7 @@ export const LabsManager: React.FC<LabsManagerProps> = ({ language }) => {
                 </button>
                 <button
                   onClick={() => act(lab.id, 'stop')}
-                  disabled={!!pending || !isRunning}
+                  disabled={!!pending || !containerUp}
                   className="flex-1 px-3 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 rounded-lg border border-slate-700 transition-colors flex items-center justify-center gap-1.5"
                 >
                   {pending === 'stop' ? (

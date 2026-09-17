@@ -22,6 +22,12 @@
  * answer is UNKNOWN — "I could not tell" is a different fact from "it is
  * stopped", and collapsing the two makes the platform assert what it does not
  * know.
+ *
+ * Two facts are kept separate throughout, because conflating them produced a
+ * false negative (§2.7): the container state (`containerRunning`), read from
+ * `docker inspect`, and the service verdict (`status`), which is `RUNNING` only
+ * when a probe observed the app answering. A container that is up while the app
+ * is still booting is `STARTING` — for DVWA that gap is ~21s.
  */
 
 import type DockerodeType from "dockerode";
@@ -30,12 +36,24 @@ import { ensureSandboxNetwork, SANDBOX_NETWORK_NAME } from "../sandbox/network";
 import { addAuditLog } from "../core/store";
 import { emitEvent } from "../core/events";
 import { ToolNotAvailableError } from "../core/errors";
+import {
+  ensureProbeImage,
+  labProbeImage,
+  observeLabReadiness,
+  probeContainerName,
+} from "./readiness";
+import type { LabReadiness } from "./readiness";
 
 /**
- * RUNNING/STOPPED are read from Docker. STARTING is a lab whose container is
- * up but not yet serving. UNKNOWN means the state could not be determined —
- * the daemon is unreachable — and must never be reported as STOPPED, which
- * would claim a stopped container nobody actually observed.
+ * The *service* verdict, derived from the two observations in {@link LabState}:
+ *
+ *   RUNNING   a probe observed the app answering — not merely a live container
+ *   STARTING  the container is up, but the app has not answered yet
+ *   STOPPED   no container is running (absence was observed)
+ *   UNKNOWN   the verdict could not be determined — daemon unreachable, or a
+ *             running container whose readiness could not be observed. Never
+ *             rounded to STOPPED (invents a stopped container) or to RUNNING
+ *             (invents a serving app).
  */
 export type LabStatus = "RUNNING" | "STOPPED" | "STARTING" | "UNKNOWN";
 
@@ -95,10 +113,20 @@ export function getLabDefinition(id: string): LabDefinition | undefined {
 }
 
 export interface LabState extends LabDefinition {
+  /** Service verdict. `RUNNING` requires an observed answer, never a guess. */
   status: LabStatus;
+  /**
+   * Container-level fact, read from `docker inspect`. `null` means it could not
+   * be read — which is not the same as `false`. Kept separate from `status` so
+   * "the container is up" and "the lab is ready" cannot be mistaken for each
+   * other.
+   */
+  containerRunning: boolean | null;
   containerId?: string;
   /** URL reachable from INSIDE the sandbox network only. */
   internalUrl: string;
+  /** The observation behind `status`. Always populated, like `detail`. */
+  readiness: LabReadiness;
   /** Why the lab is in this state. Always populated. */
   detail: string;
   startedAt?: string;
@@ -146,7 +174,18 @@ async function dockerOrThrow(): Promise<DockerodeType> {
   return d;
 }
 
-/** Inspect the real container state for one lab. Never guesses. */
+/** Human-readable "how long has it been up", or "" when Docker gave no time. */
+function upFor(startedAt?: string): string {
+  const ms = startedAt ? Date.now() - Date.parse(startedAt) : NaN;
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  return ` (up ${Math.round(ms / 1000)}s)`;
+}
+
+/**
+ * Read the container state, then observe readiness if — and only if — there is a
+ * running container to ask. Never guesses, and never lets "cannot tell" round to
+ * either "running" or "stopped".
+ */
 export async function getLabState(id: string): Promise<LabState> {
   const def = getLabDefinition(id);
   if (!def) throw new Error(`Unknown lab "${id}". Labs must come from the fixed catalog.`);
@@ -154,7 +193,13 @@ export async function getLabState(id: string): Promise<LabState> {
   const base: LabState = {
     ...def,
     status: "UNKNOWN",
+    containerRunning: null,
     internalUrl: `http://${def.hostname}:${def.port}`,
+    readiness: {
+      state: "UNVERIFIED",
+      probeImage: labProbeImage(),
+      evidence: "Docker was not consulted, so nothing was observed.",
+    },
     detail: "",
   };
 
@@ -164,24 +209,95 @@ export async function getLabState(id: string): Promise<LabState> {
   } catch (err) {
     // No daemon means no observation. Reporting STOPPED here would be the
     // platform inventing a container state it never read.
-    return { ...base, status: "UNKNOWN", detail: (err as Error).message };
-  }
-
-  try {
-    const info = await d.getContainer(containerName(id)).inspect();
-    const running = info.State?.Running === true;
+    const reason = (err as Error).message;
     return {
       ...base,
-      status: running ? "RUNNING" : "STOPPED",
-      containerId: info.Id?.substring(0, 12),
-      startedAt: info.State?.StartedAt,
-      detail: running
-        ? `Container is running on the ${SANDBOX_NETWORK_NAME} network.`
-        : `Container exists but is not running (${info.State?.Status ?? "unknown"}).`,
+      status: "UNKNOWN",
+      readiness: { state: "UNVERIFIED", probeImage: labProbeImage(), evidence: reason },
+      detail: `The container state could not be read: ${reason}`,
     };
-  } catch {
-    return { ...base, status: "STOPPED", detail: "No container exists for this lab." };
   }
+
+  const inspected = await d
+    .getContainer(containerName(id))
+    .inspect()
+    .then(
+      (info) => ({ ok: true as const, info }),
+      () => ({ ok: false as const, info: null }),
+    );
+
+  if (!inspected.ok) {
+    // Inspect is the only Docker read made here, so a failure really does mean
+    // there is no container. Nothing is running, therefore nothing is serving.
+    return {
+      ...base,
+      status: "STOPPED",
+      containerRunning: false,
+      readiness: {
+        state: "NOT_READY",
+        probeImage: labProbeImage(),
+        evidence: "no container exists for this lab, so there is nothing to probe",
+      },
+      detail: "No container exists for this lab.",
+    };
+  }
+
+  const info = inspected.info;
+  const containerId = info.Id?.substring(0, 12);
+  const startedAt = info.State?.StartedAt;
+  const running = info.State?.Running === true;
+
+  if (!running) {
+    const status = info.State?.Status ?? "unknown";
+    return {
+      ...base,
+      status: "STOPPED",
+      containerRunning: false,
+      containerId,
+      startedAt,
+      readiness: {
+        state: "NOT_READY",
+        probeImage: labProbeImage(),
+        evidence: `the container exists but is not running (${status}), so nothing is serving`,
+      },
+      detail: `Container exists but is not running (${status}).`,
+    };
+  }
+
+  // The container is up. That is a container fact, and on its own it is not
+  // evidence that the app is serving — so ask the app.
+  const readiness = await observeLabReadiness(d, { id, url: base.internalUrl });
+  const observed = {
+    ...base,
+    containerRunning: true,
+    containerId,
+    startedAt,
+    readiness,
+  };
+
+  if (readiness.state === "READY") {
+    return {
+      ...observed,
+      status: "RUNNING",
+      detail: `Container is running on the ${SANDBOX_NETWORK_NAME} network and ${readiness.evidence}.`,
+    };
+  }
+
+  if (readiness.state === "NOT_READY") {
+    return {
+      ...observed,
+      status: "STARTING",
+      detail: `Container is running${upFor(startedAt)} but the app is not answering yet — ${readiness.evidence}.`,
+    };
+  }
+
+  return {
+    ...observed,
+    status: "UNKNOWN",
+    detail:
+      `Container is running${upFor(startedAt)}, but whether the app is serving could not be ` +
+      `observed — ${readiness.evidence}.`,
+  };
 }
 
 export async function listLabStates(): Promise<LabState[]> {
@@ -189,7 +305,11 @@ export async function listLabStates(): Promise<LabState[]> {
 }
 
 /**
- * Start a lab. Idempotent: an already-running lab is returned as-is.
+ * Start a lab. Idempotent: a lab whose container is already up is returned as-is.
+ *
+ * The idempotency check is on the *container*, not on `status`. A lab whose
+ * container is up but whose app has not answered yet reads `STARTING`; treating
+ * that as "not started" would destroy a lab mid-boot and restart its clock.
  *
  * The container gets NO published ports, a memory/pid ceiling, and the internal
  * sandbox network. It is reachable by agents and by nothing else.
@@ -199,7 +319,7 @@ export async function startLab(id: string, actor = "LabManager"): Promise<LabSta
   if (!def) throw new Error(`Unknown lab "${id}". Labs must come from the fixed catalog.`);
 
   const existing = await getLabState(id);
-  if (existing.status === "RUNNING") return existing;
+  if (existing.containerRunning === true) return existing;
 
   const d = await dockerOrThrow();
   const network = await ensureSandboxNetwork(d);
@@ -249,12 +369,19 @@ export async function startLab(id: string, actor = "LabManager"): Promise<LabSta
 
   await container.start();
 
+  // Availability of the probe image is a precondition for ever reporting
+  // RUNNING, so put it in place while the lab boots. A failure here is not
+  // swallowed silently: the state below reports readiness as unverified, with
+  // the reason, rather than assuming the app is fine.
+  await ensureProbeImage(d);
+
   addAuditLog(
     actor,
     `LAB_START_${id.toUpperCase()}`,
     def.hostname,
     "STARTED",
-    `Lab "${def.name}" started on the ${network} network with no published host ports.`,
+    `Lab "${def.name}" started on the ${network} network with no published host ports. ` +
+      "Readiness is now observed separately: RUNNING is reported only once the app answers.",
   );
   emitEvent("TASK_STARTED", { target: def.hostname, detail: `lab ${id} started` });
 
@@ -267,6 +394,13 @@ export async function stopLab(id: string, actor = "LabManager"): Promise<LabStat
   if (!def) throw new Error(`Unknown lab "${id}".`);
 
   const d = await dockerOrThrow();
+  // A probe is short-lived, but a hard crash can leave one behind; a stop should
+  // leave nothing of this lab running.
+  try {
+    await d.getContainer(probeContainerName(id)).remove({ force: true });
+  } catch {
+    /* no probe left over */
+  }
   try {
     const c = d.getContainer(containerName(id));
     await c.stop({ t: 5 }).catch(() => {});

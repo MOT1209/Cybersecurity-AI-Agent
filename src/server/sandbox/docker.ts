@@ -43,6 +43,21 @@ async function pullImage(docker: DockerodeType, image: string): Promise<void> {
   });
 }
 
+/**
+ * Make an image available locally, pulling once when it is absent. Shared by
+ * the tool executor and the lab readiness probe (§2.7) so both behave the same
+ * way rather than each having their own idea of when to pull.
+ */
+export async function ensureImagePresent(docker: DockerodeType, image: string): Promise<void> {
+  try {
+    await docker.getImage(image).inspect();
+    return;
+  } catch {
+    /* not present locally */
+  }
+  await pullImage(docker, image);
+}
+
 export class DockerExecutor implements ToolExecutor {
   readonly id = "docker" as const;
   private cachedDocker: DockerodeType | null | undefined;
@@ -144,11 +159,7 @@ export class DockerExecutor implements ToolExecutor {
     };
 
     // Ensure the image exists locally, pulling once if needed.
-    try {
-      await docker.getImage(image).inspect();
-    } catch {
-      await pullImage(docker, image);
-    }
+    await ensureImagePresent(docker, image);
 
     let container: Container | null = null;
     try {
