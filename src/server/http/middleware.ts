@@ -11,6 +11,54 @@
 import type { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
+import { incrementDailyExecution } from "../tools/registry";
+import type { Principal, Role } from "../security/principal";
+
+// Monthly budget guard lives in core/budget; re-exported here so the app
+// assembly imports every global guard from this one module.
+export { enforceMonthlyBudget } from "../core/budget";
+
+/** Maximum tool executions per IP per day. Set to `0` or omit to disable. */
+export const MAX_TOOL_EXECUTIONS_PER_DAY = Number(process.env.MAX_TOOL_EXECUTIONS_PER_DAY) || 0;
+
+/**
+ * Execution limit enforcement — after budget and auth, checks per-IP daily
+ * tool execution cap. Increments the counter on each allowed request so the
+ * limit is tight.
+ */
+export function enforcementLimitHandler(message: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const ip = (req as Request & { ip?: string }).ip || "unknown";
+
+    // Count this request toward the daily exec limit
+    const path = req.path;
+    // Extract tool ID from path if possible (e.g., /api/tools/execute/:id)
+    const toolIdMatch = path.match(/\/api\/tools\/execute\/([^/]+)/);
+    const toolId = toolIdMatch ? toolIdMatch[1] : "unknown";
+
+    incrementDailyExecution(ip, toolId);
+
+    if (MAX_TOOL_EXECUTIONS_PER_DAY <= 0) {
+      return next();
+    }
+
+    // We need to check the count after incrementing; the store tracks per-ip per-tool
+    const ipStore = (global as any).dailyExecStore?.get(ip);
+    const count = ipStore ? ipStore.get(toolId) : 1;
+
+    if (count > MAX_TOOL_EXECUTIONS_PER_DAY) {
+      const _resetTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      return res.status(429).json({
+        error: "DAILY_EXECUTION_LIMIT_EXCEEDED",
+        message: `${message} Please retry after 24 hours.`,
+        retryAfterSeconds: 86400,
+      });
+    }
+
+    next();
+  };
+}
+
 import {
   resolvePrincipal,
   principalsConfigured,
@@ -18,7 +66,6 @@ import {
   SHARED_KEY_PRINCIPAL,
   ANONYMOUS_PRINCIPAL,
 } from "../security/principal";
-import type { Principal, Role } from "../security/principal";
 
 /**
  * Constant-time API key comparison. Both sides are hashed first so the
@@ -129,4 +176,21 @@ export function principalOf(req: Request): Principal {
 
 export function callerHasRole(req: Request, role: Role): boolean {
   return hasRole(principalOf(req), role);
+}
+
+/**
+ * Role gate for mutating/executing routes. Call AFTER input validation so a
+ * malformed request still gets 400 (not a misleading 403), and check the
+ * authenticated principal — never a name from the body.
+ */
+export function requireRole(req: Request, res: Response, role: Role): boolean {
+  if (callerHasRole(req, role)) return true;
+  const principal = principalOf(req);
+  res.status(403).json({
+    error: "FORBIDDEN",
+    message:
+      `Principal "${principal.id}" does not hold the "${role}" role. ` +
+      "Configure per-key identities via API_PRINCIPALS.",
+  });
+  return false;
 }

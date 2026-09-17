@@ -107,8 +107,14 @@ export const SHARED_KEY_PRINCIPAL: Principal = {
   roles: ["operator", "viewer"],
 };
 
-/** The principal for fully open local development (no key configured at all). */
+/**
+ * The principal for fully open local development (no key configured at all).
+ * Viewer ONLY: it may read listings, findings and health, but any state
+ * change or tool execution requires a configured key with the right role.
+ * An open dev server that can execute tools for anyone on the network is an
+ * incident, not a convenience.
+ */
 export const ANONYMOUS_PRINCIPAL: Principal = {
   id: "anonymous-dev",
-  roles: ["operator", "viewer"],
+  roles: ["viewer"],
 };

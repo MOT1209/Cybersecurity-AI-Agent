@@ -14,9 +14,14 @@ All `/api/*` endpoints (except `/api/health`) are guarded with the `x-api-key` h
   - If `APP_ACCESS_KEY` is configured in `.env`, incoming requests without a matching `x-api-key` header receive `401 Unauthorized`.
   - In local development where `APP_ACCESS_KEY` is omitted, open access is allowed for development ease.
 - **Frontend requirement:** the SPA sends the header via the shared `src/lib/api.ts` client, which reads it from the build-time env var **`VITE_APP_ACCESS_KEY`**. If you set `APP_ACCESS_KEY` you **must** set `VITE_APP_ACCESS_KEY` to the same value or the whole UI will get 401s. Because this value is embedded in the client bundle, treat it as a coarse gate (rate-limit / bot filter), not a real trust boundary — put a proper auth proxy in front for real deployments.
+- **Open development is read-only.** With neither `API_PRINCIPALS` nor `APP_ACCESS_KEY` configured, callers resolve to `anonymous-dev`, which holds the `viewer` role only: listings, findings, health and gateway checks work, but tool execution, lab start/stop, missions, project creation, mode switches and breaker resets answer `403 FORBIDDEN`. Execution requires a configured key (`operator` for tools/labs/missions, `admin` for projects/mode/breakers, `approver` to decide approvals).
 
-### Model configuration (`GEMINI_MODEL`)
-All AI calls use `GEMINI_MODEL` (default `gemini-2.5-flash`). It must be a real, currently-served model id — an invalid id makes every live call fail and silently fall back to the deterministic local engine. Some helper endpoints (`/api/gemini/simulate-cmd`, `/generate-report`, `/explain-threat`) are template-only by design and never call the model.
+### Model configuration (`GEMINI_MODEL`, providers)
+All AI calls resolve through the provider layer `src/server/llm/` in preference order **zen → groq → claude → gemini → local**, trying each available provider before degrading to the deterministic local engine. Pin one with `AI_PROVIDER` (`zen|groq|claude|gemini|local`).
+- `GEMINI_API_KEY` / `GEMINI_MODEL` (default `gemini-2.5-flash`), `ANTHROPIC_API_KEY` / `CLAUDE_MODEL` — as before.
+- `GROQ_API_KEY` / `GROQ_MODEL` (default `llama-3.3-70b-versatile`) — OpenAI-compatible, fetch-only, no SDK.
+- `OPENCODE_API_KEY` (alias `OPENCODE_ZEN_API_KEY`) / `ZEN_MODEL` (default `gemini-3-flash`) — Zen gateway; verify your model with `GET <ZEN_BASE_URL>/models` (override via `ZEN_BASE_URL`/`ZEN_CHAT_PATH`).
+An invalid/unreachable model fails loudly to the next provider — never silently. SAST audit (`/api/gemini/audit-code`) and error diagnosis use the same layer; with no live model they return explicitly empty, `hypothetical` contracts instead of invented findings. Helper endpoints (`/api/gemini/simulate-cmd`, `/generate-report`, `/explain-threat`) remain template-only by design and never call a model.
 
 ### 2. Rate Limiting Architecture (`express-rate-limit`)
 To prevent Denial of Service (DoS) and excessive API token consumption, multi-tiered IP-based rate limiters are enforced:

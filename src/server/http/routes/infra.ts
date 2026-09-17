@@ -14,6 +14,7 @@ import {
   addAuditLog,
 } from "../../core/index";
 import { databaseStatus } from "../../database/index";
+import { requireRole } from "../middleware";
 import {
   RUN_MODES,
   DEFAULT_RUN_MODE,
@@ -60,6 +61,8 @@ export function registerInfraRoutes(app: Express) {
     }
 
     const { name, targetDomain, inScope = [], outOfScope = [] } = req.body;
+    // Creating an engagement (new scope!) is an admin act.
+    if (!requireRole(req, res, "admin")) return;
     const newProj = {
       id: `proj_${crypto.randomUUID()}`,
       name: name || "New Security Engagement Lab",
@@ -105,6 +108,8 @@ export function registerInfraRoutes(app: Express) {
         message: `Field 'mode' must be one of: ${RUN_MODES.join(", ")}.`,
       });
     }
+    // Switching enforcement layers is an admin act.
+    if (!requireRole(req, res, "admin")) return;
     const mode = req.body.mode;
     const previous = getRunMode();
     setRunMode(mode);

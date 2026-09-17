@@ -43,7 +43,27 @@ export function registerIntrospectionRoutes(app: Express) {
   });
 
   // Audit Logs API
-  app.get("/api/logs", (_req, res: Response) => {
-    res.json(auditLogsStore);
+  app.get("/api/logs", (req, res: Response) => {
+    const q = req.query as Record<string, string | undefined>;
+    const page = Math.max(1, Number(q.page) || 1);
+    const perPage = Math.max(1, Math.min(Number(q.perPage) || 50, 200));
+    const entries = auditLogsStore;
+    const total = entries.length;
+    const skip = (page - 1) * perPage;
+    const pageEntries = entries.slice(skip, skip + perPage);
+    const pageCount = Math.max(1, Math.ceil(total / perPage));
+
+    res.setHeader("X-Total-Count", String(total));
+    res.setHeader("X-Page-Count", String(pageCount));
+
+    res.json({
+      logs: pageEntries,
+      pagination: {
+        page,
+        perPage,
+        total,
+        pageCount,
+      },
+    });
   });
 }

@@ -4,9 +4,10 @@
  *
  * Multi-provider LLM abstraction (Phase 1).
  *
- * One `LLMProvider` interface, three implementations: Claude, Gemini, and a
- * deterministic Local fallback. The rest of the platform depends only on this
- * interface, so agents/orchestrator never touch a vendor SDK directly.
+ * One `LLMProvider` interface, five implementations: Zen, Groq, Claude,
+ * Gemini, and a deterministic Local fallback. The rest of the platform depends
+ * only on this interface, so agents/orchestrator never touch a vendor SDK
+ * directly.
  */
 
 export type ChatRole = "user" | "assistant";
@@ -27,7 +28,7 @@ export interface GenerateOptions {
 
 export interface GenerateResult {
   text: string;
-  /** Which concrete provider actually served this (claude|gemini|local). */
+  /** Which concrete provider actually served this (zen|groq|claude|gemini|local). */
   provider: string;
   /** True when this came from the deterministic local fallback. */
   fallback: boolean;
@@ -45,7 +46,7 @@ export interface GenerateJSONResult<T = unknown> {
 }
 
 export interface LLMProvider {
-  /** Stable id: "claude" | "gemini" | "local". */
+  /** Stable id: "zen" | "groq" | "claude" | "gemini" | "local". */
   readonly id: string;
   /** Whether this provider is actually usable (e.g. has an API key). */
   isAvailable(): boolean;

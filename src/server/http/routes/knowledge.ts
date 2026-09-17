@@ -58,22 +58,43 @@ export function registerKnowledgeRoutes(app: Express) {
    * Findings with their true verification status. A finding is only ever
    * CONFIRMED if the Validation agent said so; scanner output alone stays
    * DETECTED. Filter with ?status=, ?projectId=, ?traceId=, ?minSeverity=.
+   * Pagination: ?page=1&perPage=50 (max 200). Returns X-Total-Count and X-Page-Count headers.
    */
   app.get("/api/findings", (req, res: Response) => {
     const q = req.query as Record<string, string | undefined>;
+    const page = Math.max(1, Number(q.page) || 1);
+    const perPage = Math.max(1, Math.min(Number(q.perPage) || 50, 200));
+    const skip = (page - 1) * perPage;
+
     const findings = listFindings({
       projectId: q.projectId,
       traceId: q.traceId,
       status: q.status as never,
       minSeverity: q.minSeverity as never,
     });
+
+    const total = findings.length;
+    const pageCount = Math.max(1, Math.ceil(total / perPage));
+
+    const pagedFindings = findings.slice(skip, skip + perPage);
+
+    // Set pagination headers
+    res.setHeader("X-Total-Count", String(total));
+    res.setHeader("X-Page-Count", String(pageCount));
+
     res.json({
-      findings,
+      findings: pagedFindings,
       counts: {
-        total: findings.length,
-        confirmed: findings.filter((f) => f.validation.status === "CONFIRMED").length,
-        detected: findings.filter((f) => f.validation.status === "DETECTED").length,
-        unconfirmed: findings.filter((f) => f.validation.status === "UNCONFIRMED").length,
+        total,
+        confirmed: pagedFindings.filter((f) => f.validation.status === "CONFIRMED").length,
+        detected: pagedFindings.filter((f) => f.validation.status === "DETECTED").length,
+        unconfirmed: pagedFindings.filter((f) => f.validation.status === "UNCONFIRMED").length,
+      },
+      pagination: {
+        page,
+        perPage,
+        total,
+        pageCount,
       },
     });
   });

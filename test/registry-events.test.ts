@@ -11,6 +11,18 @@ beforeAll(() => {
 import { createApp } from "../server";
 import { emitEvent, listEvents, onEvent, resetEvents } from "../src/server/core/events";
 import { executeTool } from "../src/server/sandbox/index";
+import { resetPrincipals } from "../src/server/security/principal";
+
+/** Executing a tool requires the operator role — these HTTP tests run as one. */
+const OPERATOR_KEY = "registry-operator-secret";
+function asOperator() {
+  process.env.API_PRINCIPALS = `registry-operator:operator:${OPERATOR_KEY}`;
+  resetPrincipals();
+}
+function openDev() {
+  delete process.env.API_PRINCIPALS;
+  resetPrincipals();
+}
 
 describe("event bus", () => {
   beforeEach(() => resetEvents());
@@ -96,10 +108,16 @@ describe("introspection APIs", () => {
 
   it("GET /api/tools/execute rejects an unregistered tool with 400", async () => {
     const app = await createApp();
-    const res = await request(app)
-      .post("/api/tools/execute")
-      .send({ toolId: "definitely-not-a-tool", target: "192.168.1.50" })
-      .expect(400);
-    expect(res.body.error).toBe("TOOL_NOT_REGISTERED");
+    asOperator();
+    try {
+      const res = await request(app)
+        .post("/api/tools/execute")
+        .set("x-api-key", OPERATOR_KEY)
+        .send({ toolId: "definitely-not-a-tool", target: "192.168.1.50" })
+        .expect(400);
+      expect(res.body.error).toBe("TOOL_NOT_REGISTERED");
+    } finally {
+      openDev();
+    }
   });
 });

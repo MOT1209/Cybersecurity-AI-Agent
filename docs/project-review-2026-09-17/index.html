@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تقرير المراجعة الشاملة — CYBERGUARD AI | 2026-09-17</title>
+<link rel="icon" href="assets/logo.svg">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<header class="hero">
+<div class="wrap">
+<div class="hero-inner">
+<div class="logo">🛡️</div>
+<div>
+<h1>تقرير المراجعة الشاملة — CYBERGUARD AI</h1>
+<p>منصة تقييم أمني متعددة الوكلاء • مراجعة معمارية + أمنية + جودة كود + فحوصات حية • التاريخ: 17 سبتمبر 2026 • الإصدار 0.1.0</p>
+</div>
+</div>
+<nav class="toc">
+<a href="#summary">الملخص التنفيذي</a><a href="#live">الفحوصات الحية</a><a href="#arch">المعمارية</a><a href="#inventory">الجرد</a><a href="#auth">الثقة والصلاحيات</a><a href="#exec">ضمان التنفيذ</a><a href="#data">سلامة البيانات</a><a href="#risks">سجل المخاطر</a><a href="#quality">جودة الكود</a><a href="#recs">التوصيات</a><a href="#appendix">الملحق</a>
+</nav>
+</div>
+</header>
+<div class="wrap">
+
+<section id="summary">
+<h2><span class="n">1</span> الملخص التنفيذي</h2>
+<p class="sub">مراجعة كاملة للمستودع مع تشغيل فعلي للأدوات — لا ادعاءات بدون دليل. كل رقم أدناه مقاس بتاريخ 2026-09-17 على نفس الجهاز.</p>
+<div class="grid g4">
+<div class="card kpi"><svg class="score-ring" id="scoreRing" viewBox="0 0 150 150"><circle cx="75" cy="75" r="64" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="12"/><circle class="fg" cx="75" cy="75" r="64" fill="none" stroke="#22d3ee" stroke-width="12" stroke-linecap="round" transform="rotate(-90 75 75)"/><text x="75" y="72" text-anchor="middle" fill="#e8eefc" font-size="26" font-weight="800" class="pct">82%</text><text x="75" y="94" text-anchor="middle" fill="#93a1c0" font-size="11">الصحة العامة</text></svg><p class="small">منصة ناضجة أمنياً، fail-closed حقيقي، تحتاج إصلاحات تفويض وتوثيق.</p></div>
+<div class="card kpi"><div class="v" style="color:var(--green)">316/316</div><div class="l">اختبار ناجح — 25 ملف — 86.6 ثانية</div><div style="margin-top:8px"><span class="badge pass">PASS</span> <span class="badge info">vitest 2.1.9</span></div></div>
+<div class="card kpi"><div class="v" style="color:var(--green)">0 / 0</div><div class="l">أخطاء tsc / أخطاء eslint — 50 تحذير فقط</div><div style="margin-top:8px"><span class="badge pass">TSC نظيف</span> <span class="badge warn">50 warn</span></div></div>
+<div class="card kpi"><div class="v" style="color:var(--green)">Build ✓</div><div class="l">واجهة 591KB (تحذير chunk) + خادم 373.9KB</div><div style="margin-top:8px"><span class="badge pass">vite + esbuild</span></div></div>
+</div>
+<div class="grid g3" style="margin-top:16px">
+<div class="card"><h3>✅ أبرز نقاط القوة</h3><ul style="font-size:13px;margin:0;padding-right:18px;color:var(--txt)"><li><b>Fail-closed منهجي:</b> لا Docker ← <code>503 NOT_AVAILABLE</code> بدون downgrade صامت؛ <code>DATABASE_URL</code> غير reachable ← إيقاف الإقلاع.</li><li><b>صدق الفشل:</b> مخرجات <code>SIMULATED — NOT A REAL RESULT</code> موسومة؛ <code>templateOnly / PARTIAL / hypothetical</code> تمنع تقديم التخمين كدليل.</li><li><b>دفاع متعدد الطبقات:</b> scope صارم + سياسة مخاطر من السجل + توكن موافقة أحادي + عزل Docker + شبكة داخلية.</li><li><b>أدلة قابلة للتدقيق:</b> سلسلة تدقيق بـ hash + <code>sha256</code> لكل مخرج أداة + <code>traceId</code>.</li></ul></div>
+<div class="card"><h3>⚠️ أهم الفجوات (تستحق P0)</h3><ul style="font-size:13px;margin:0;padding-right:18px"><li><b>R1 — بقايا fallback مختلقة:</b> <code>src/server/http/routes/gemini.ts:168-190</code> يرجع <code>HIGH/8.5/SQLi</code> ثابتاً عند غياب المفتاح.</li><li><b>R1b — تعافٍ وهمي:</b> <code>src/server/http/routes/orchestrator.ts:183-189</code> يرجع <code>AUTO_RECOVERED</code> مع سجل نجاح بينما المحرك الحتمي يقول <code>RECOVERY_PROPOSED</code>.</li><li><b>R2 — تفويض ناقص:</b> معظم routes بلا فحص دور؛ أي <code>operator</code> يشغّل أدوات و labs.</li><li><b>R4 — وضع مفتوح افتراضي:</b> بلا مفاتيح ← <code>anonymous:operator+viewer</code> يستطيع التنفيذ.</li></ul></div>
+<div class="card"><h3>📊 الحكم النهائي</h3><p style="font-size:13.5px">المشروع <b>صالح للتشغيل المخبري والتطوير</b>، و<b>غير جاهز للنشر الإنتاجي المفتوح</b> قبل إصلاح P0 (إزالة الـ fallback الثابت، تقييد الـ anonymous، إضافة RBAC على التنفيذ). البنية سليمة والديون معروفة وموثقة في <code>plan.md</code> الحي (722 سطر).</p><a class="btn" href="#recs">انتقل للتوصيات المرقمة</a></div>
+</div>
+</section>
+
+<section id="live">
+<h2><span class="n">2</span> الفحوصات الحية — نتائج مقاسة</h2>
+<p class="sub">نُفذت على <code>C:\Users\aihmo\alle folder von code\cyberagent-ai</code> بتاريخ 2026-09-17. الأوامر قابلة لإعادة التشغيل.</p>
+<div class="grid g2">
+<div class="card"><h3>2.1 TypeScript — <span class="badge pass">PASS</span></h3><pre>npx tsc --noEmit
+TSC-DONE-EXIT: 0   (صفر أخطاء)</pre><p class="small">الإعداد <code>tsconfig.json</code>: هدف ES2022، <code>noEmit</code>، <code>jsx: react-jsx</code>، <code>moduleResolution: bundler</code>.</p></div>
+<div class="card"><h3>2.2 ESLint — <span class="badge pass">0 errors</span> <span class="badge warn">50 warnings</span></h3><pre>npx eslint .
+✖ 50 problems (0 errors, 50 warnings)</pre><p class="small">التوزيع: <code>no-explicit-any</code> ×49 (أغلبها في <code>orchestrator/index.ts</code> ×7 و <code>claudeProvider.ts</code> ×7 و tests) + <code>react-hooks/exhaustive-deps</code> ×1 في <code>ErrorRecoveryCenter.tsx:138</code>. يطابق baseline الموثق في <code>plan.md §1</code>.</p></div>
+</div>
+<div class="card" style="margin-top:16px"><h3>2.3 الاختبارات — <span class="badge pass">25/25 ملف ✓</span> <span class="badge pass">316/316 اختبار ✓</span> <span class="badge info">86.6s</span></h3>
+<table><thead><tr><th>الملف</th><th>العدد</th><th>ما يغطيه</th></tr></thead><tbody>
+<tr><td><code>test/labs.test.ts</code></td><td>35</td><td>lifecycle + probe <code>READY/NOT_SERVING/UNVERIFIED</code> + <code>UNKNOWN</code> عند موت الـ daemon</td></tr>
+<tr><td><code>test/knowledge.test.ts</code></td><td>26</td><td>BM25 + provenance + score-floor + knowledge≠evidence</td></tr>
+<tr><td><code>test/database.test.ts</code></td><td>22</td><td>memory / fail-closed / migrations / audit-chain / principals</td></tr>
+<tr><td><code>test/security.test.ts</code></td><td>23</td><td>scope-bypass / self-approval / injection / leakage / no-fabrication</td></tr>
+<tr><td><code>test/approvals.test.ts</code></td><td>16</td><td><code>428 → decision → token → single-use</code> (مقسمة بعد flake)</td></tr>
+<tr><td><code>test/findings-validation.test.ts</code></td><td>14</td><td><code>DETECTED → CONFIRMED</code> عبر Validation فقط + سقف الثقة</td></tr>
+<tr><td><code>test/ui-endpoints.test.ts</code></td><td>10</td><td>عقود الواجهة (تمنع كسر UI صامتاً) — backend فقط، لا render</td></tr>
+<tr><td><code>test/honest-failure.test.ts</code></td><td>5</td><td><code>ToolNotAvailableError</code> عبر mock لـ <code>dockerode.ping reject</code></td></tr>
+<tr><td><td colspan="3" class="small">+ 17 ملف آخر (adapters, agent-manager, api, catalog, code-tools, core, ctf-data, gateway-hardening, llm, multi-agent, orchestrator, pipeline-agents, registry-events, runtime-modes, sandbox, sandbox-hardening) = المجموع 316. الإعداد <code>test/setup.ts</code> يثبت <code>SANDBOX_MODE=simulate</code> ويمسح مفاتيح النماذج لمنع الوصول الحي.</td></tr>
+</tbody></table>
+<p class="small">ملاحظة: الرقم تجاوز baseline الـ <code>plan.md</code> (260 ثم 290) — إشارة صحية لنمو التغطية. لا توجد <code>coverage thresholds</code> ولا اختبارات واجهة (<code>jsdom/playwright</code> غائبة).</p></div>
+<div class="grid g2" style="margin-top:16px">
+<div class="card"><h3>2.4 البناء — <span class="badge pass">PASS</span> <span class="badge warn">تحذير chunk</span></h3><pre>npm run build  →  vite build && esbuild
+dist/index.html               1.66 kB (gzip 0.75)
+dist/assets/index-*.css      83.09 kB (gzip 12.73)
+dist/assets/index-*.js      591.48 kB (gzip 170.85) ⚠ &gt;500kB
+dist/server.cjs             373.9 kB (+ map 680.5)
+✓ built in 2m 16s + Done in 770ms</pre><p class="small">التوصية: تقسيم <code>OrchestratorDashboard (783 سطر)</code> و <code>ErrorRecoveryCenter (872 سطر)</code> بـ <code>dynamic import()</code> و <code>manualChunks</code>.</p></div>
+<div class="card"><h3>2.5 فحوصات سريعة</h3><table><thead><tr><th>الفحص</th><th>النتيجة</th></tr></thead><tbody><tr><td><code>TODO/FIXME/HACK</code> في <code>src/</code></td><td><span class="badge pass">صفر — نظيف</span></td></tr><tr><td><code>console.*</code> في <code>src/</code></td><td><span class="badge info">26 موضع — كلها معالجة أخطاء مشروعة</span></td></tr><tr><td>الاعتماديات المباشرة</td><td><span class="badge info">35 حزمة (express, pg, dockerode, zod, helmet...)</span> + <code>semver extraneous</code> واحد يستحق التنظيف</td></tr><tr><td><code>.env</code> مقابل <code>.env.example</code></td><td><span class="badge warn">ملف <code>.env</code> حقيقي موجود — تأكد أنه في <code>.gitignore</code> ولا يُرفع</span></td></tr></tbody></table></div>
+</div>
+</section>
+
+<section id="arch">
+<h2><span class="n">3</span> المعمارية — خريطة الثقة</h2>
+<p class="sub">الدخول من <code>server.ts:15 startServer</code> (يثبت قاعدة البيانات أولاً fail-closed ثم <code>createApp</code> ثم <code>listen 0.0.0.0:7799</code>).</p>
+<div class="card arch">
+<div class="row"><span class="badge info">SPA React 19</span> <code>src/App.tsx</code> (14 تبويب، ar RTL) عبر <code>src/lib/api.ts apiFetch + x-api-key</code> <span class="arrow">←→</span> <span class="badge info">Express</span> <code>src/server/http/app.ts</code> (helmet + global limiter 60/15m + apiKeyAuth + AI limiter 15/15m + 8 route groups)</div>
+<div class="row"><span class="arrow">↓</span> <code>POST /api/gateway/check</code> (<code>core/gateway.ts</code>: target-kind → denylist → allowlist → project-tool → risk-policy → approval) <span class="arrow">→</span> <span class="badge pass">ALLOW 403/428/400/503 + checks[] مرتبة + audit</span></div>
+<div class="row"><span class="arrow">↓</span> <code>POST /api/tools/execute</code> (<code>sandbox/index.ts executeTool</code> البوابة الوحيدة) <span class="arrow">→</span> <code>DockerExecutor</code> (ReadonlyRootfs, CapDrop ALL, tmpfs 64m, شبكة internal) أو <code>localSim</code> الموسوم</div>
+<div class="row"><span class="badge info">7 وكلاء executable</span> <code>agents/manager.ts dispatch + timeout + AbortSignal + runs(200)</code>: recon(nmap) → web(nuclei بشرط HTTP مفتوح) → validation(مراجعة أدلة فقط) → remediation(إرشاد فقط) → testing(يفحص الضوابط بلا أدوات) → reporting <span class="arrow">→</span> <code>findings/engine.ts DETECTED/confidence 0</code></div>
+<div class="row"><span class="badge info">Knowledge BM25 offline</span> (<code>corpus.ts</code> من <code>cyberData.ts</code> فقط + citations) <span class="arrow">+</span> <span class="badge info">Labs معزولة</span> (3 أهداف، بلا host ports، <code>RUNNING/STARTING/STOPPED/UNKNOWN</code> + probe من داخل الشبكة) <span class="arrow">+</span> <span class="badge info">Postgres/memory + audit hash-chain</span></div>
+</div>
+<p class="small">نقطة تصميم ممتازة: المنسق يعمل على <b>الأدلة لا على الـ prompt</b> — فحص الويب يُتخطى <code>SKIPPED</code> بسبب مُعلن عندما لا يرصد الاستطلاع منفذ HTTP.</p>
+</section>
+
+<section id="inventory">
+<h2><span class="n">4</span> الجرد الكمي</h2>
+<p class="sub">المصدر: عد فعلي للملفات + <code>package.json</code> + أحجام <code>dist/</code>.</p>
+<div class="grid g4">
+<div class="card kpi"><div class="v">100</div><div class="l">ملف TS/TSX في src (82 ts + 18 tsx) + 1 sql + 1 css</div></div>
+<div class="card kpi"><div class="v">77</div><div class="l">ملف في src/server عبر 14 مجالاً</div></div>
+<div class="card kpi"><div class="v">16</div><div class="l">مكون React + ملفا بيانات (agentPlatformData 14KB, cyberData 23.8KB)</div></div>
+<div class="card kpi"><div class="v">35</div><div class="l">اعتمادية مباشرة (react 19, vite 6, express 4, pg 8...)</div></div>
+</div>
+<div class="card" style="margin-top:16px"><h3>توزيع الواجهة (الأكبر أولاً — مرشحة للتقسيم)</h3>
+<table><thead><tr><th>المكون</th><th>الحجم</th><th>الوظيفة</th></tr></thead><tbody>
+<tr><td><code>ErrorRecoveryCenter.tsx</code></td><td>872 سطر / 42KB</td><td>أحداث التشخيص + محاكاة + circuit — موسوم <code>DIAGNOSIS ONLY</code> بصدق</td></tr>
+<tr><td><code>OrchestratorDashboard.tsx</code></td><td>783 سطر / 39KB</td><td>تشغيل المهمة + المراحل + generatedFindings</td></tr>
+<tr><td><code>CyberToolbox.tsx</code></td><td>666 سطر</td><td>أدوات محلية فقط (تشفير/هاش/منافذ) — بلا backend</td></tr>
+<tr><td><code>AgentWorkspace.tsx</code></td><td>499 سطر</td><td>شات <code>POST /api/gemini/chat</code> بخمس شخصيات + Markdown</td></tr>
+<tr><td><code>KnowledgeBase.tsx</code></td><td>455 سطر</td><td>OWASP/MITRE محلي + بحث <code>/api/knowledge/search</code> مع citations</td></tr>
+<tr><td><code>LabsManager.tsx</code></td><td>414 سطر</td><td>يعرض <code>internalUrl dvwa.lab</code> فقط — لا host URL لمختبر ضعيف ✓</td></tr>
+<tr><td><td colspan="3" class="small">+ <code>CodeAuditor, InteractiveTerminalLab (executed:false), ReportBuilder, FindingsExplorer (Severity ≠ Verdict), CtfArena, ApprovalsCenter (التوكن مرة واحدة), SecurityGatewayManager, ToolRegistry (null ≠ false), Navbar, ErrorBoundary</code>.</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="auth">
+<h2><span class="n">5</span> حدود الثقة والمصادقة</h2>
+<p class="sub">المرجع: <code>src/server/http/middleware.ts:92-124</code> + <code>src/server/security/principal.ts</code>.</p>
+<div class="card"><table><thead><tr><th>الطبقة</th><th>السلوك</th><th>الحكم</th></tr></thead><tbody>
+<tr><td><code>API_PRINCIPALS=id:roles:secret</code> (sha256 + constant-time)</td><td>أدوار <code>admin/operator/approver/viewer</code>؛ القرار الحرج يتطلب <code>approver</code> والـ decider هو الـ principal المصدق لا اسم في body؛ منع self-approval بـ <code>409</code></td><td><span class="badge pass">سليم</span></td></tr>
+<tr><td><code>APP_ACCESS_KEY</code> المشترك</td><td>يمنح <code>operator/viewer</code> عمداً <b>بلا</b> <code>approver</code> — مفتاح جماعي ليس شخصاً</td><td><span class="badge pass">تصميم صحيح</span></td></tr>
+<tr><td>بلا أي مفتاح (dev)</td><td><code>ANONYMOUS_PRINCIPAL: operator+viewer</code> يستطيع <b>التنفيذ</b></td><td><span class="badge fail">P0 — يجب التقييد لـ viewer فقط</span></td></tr>
+<tr><td><code>VITE_APP_ACCESS_KEY</code> في الحزمة</td><td>المفتاح مدمج في bundle المتصفح — بوابة خشنة لا حد ثقة</td><td><span class="badge warn">موثق في README — يلزم auth proxy للإنتاج</span></td></tr>
+<tr><td>Rate limit</td><td>عام 60/15m قد يكسر SPA؛ ولا limiter على <code>tools/execute, labs, approvals</code> غير AI</td><td><span class="badge warn">P1 — موازنة + تغطية</span></td></tr>
+<tr><td>RBAC على routes</td><td>فقط <code>POST /api/approvals/:id/decision</code> يفحص الدور؛ البقية (labs/start, runtime/mode, projects, reset-circuit) بلا فحص</td><td><span class="badge fail">P0 — إضافة <code>callerHasRole</code></span></td></tr>
+</tbody></table></div>
+</section>
+
+<section id="exec">
+<h2><span class="n">6</span> ضمان التنفيذ والعزل</h2>
+<div class="grid g2">
+<div class="card"><h3>بوابة الأمان + الموافقة البشرية</h3><ul style="font-size:13px"><li>المخاطر من سجل الأدوات لا من الاسم/body/النموذج: <code>LOW/MEDIUM auto, HIGH approval, CRITICAL disabled+labOnly+ENABLE_CRITICAL_TOOLS</code>؛ المجهول ← <code>CRITICAL</code>.</li><li>لا <code>approved:true</code>: <code>428</code> يفتح طلباً حقيقياً ← بشري <code>approver</code> يقرر ← توكن hex أحادي مرتبط بـ <code>tool+target</code> ويُحرق عند الاسترداد.</li><li>التوكن مرتبط بـ <code>tool+target</code> <b>لا بالـ params</b> — كافٍ اليوم لأن كل descriptor يقيد وسائطه، وهو سبب تقسيم ZAP المقترح لأداتين بدل <code>mode</code>.</li></ul></div>
+<div class="card"><h3>عزل Docker (محقق من <code>sandbox/docker.ts</code>)</h3><ul style="font-size:13px"><li>شبكة جسر داخلية مخصصة (<code>internal</code> إلا بـ <code>SANDBOX_ALLOW_EGRESS=true</code>)؛ أدوات offline (<code>semgrep/trivy</code>) بلا شبكة أصلاً.</li><li>جذر للقراءة فقط + <code>tmpfs /tmp/cyberguard (noexec,nosuid,64m)</code> + إسقاط كل القدرات + <code>no-new-privileges</code> + بلا bind mounts عدا workspace للقراءة + سقوف CPU/RAM/PIDs + timeout من الـ descriptor.</li><li>النطاق: <code>scope.ts</code> يجرد scheme/userinfo/port ويدعم CIDR و <code>*.wild</code> — يرفض <code>192.168.1.50.attacker.com</code>.</li><li>الـ workspace: <code>realpath</code> + containment — يرفض <code>../</code> والمسارات المطلقة و symlink escape (مغطى باختبار).</li></ul></div>
+</div>
+</section>
+
+<section id="data">
+<h2><span class="n">7</span> سلامة البيانات والتدقيق</h2>
+<div class="card"><table><thead><tr><th>الآلية</th><th>السلوك المحقق</th><th>الحكم</th></tr></thead><tbody>
+<tr><td>النتائج <code>findings/engine.ts</code></td><td>كل كاشف يدخل <code>DETECTED/confidence 0</code>؛ لا مسار برمجي ينتج <code>CONFIRMED</code> — فقط Validation؛ النموذج <b>يخفض فقط</b> (penalty غير سالبة)؛ <code>severity</code> ادعاء الأداة و <code>status</code> حكم المنصة — الواجهة تفصلهما ✓</td><td><span class="badge pass">ممتاز</span></td></tr>
+<tr><td>التدقيق <code>core/store.ts</code></td><td>سلسلة hash (<code>prevHash/entryHash</code> + <code>verifyAuditChain</code>) — كشف عبث لا منع عبث (موثق بصدق)</td><td><span class="badge pass">سليم</span></td></tr>
+<tr><td>الثبات <code>database/index.ts + migrate.ts</code></td><td><code>DATABASE_URL</code> غير reachable ← فشل الإقلاع (لا downgrade صامت)؛ ترحيلات lexically داخل transaction + checksum + رفض تعديل المطبق</td><td><span class="badge pass">سليم</span></td></tr>
+<tr><td>الكتابة <code>write-through غير awaited</code></td><td>لا تعطل الفحص لكن الفشل يُسجل بصوت عالٍ — مقبول مع ملاحظة مخاطر الفقد تحت الضغط</td><td><span class="badge warn">P2 — مقاييس + تنبيه</span></td></tr>
+<tr><td>السقوف الصامتة</td><td><code>audit 200, runs 200, findings 500, events 500, approvals 200</code> — إخلاء بلا تنبيه؛ المشاريع/circuit/recovery في الذاكرة فقط حتى مع Postgres</td><td><span class="badge warn">P1 — pagination + كتابة مستمرة</span></td></tr>
+</tbody></table></div>
+</section>
+
+<section id="risks">
+<h2><span class="n">8</span> سجل المخاطر — مرتب بالأولوية</h2>
+<p class="sub">ابحث في الجدول لتصفية المخاطر. المرجع الدقيق للملف والسطر مذكور لكل خطر.</p>
+<div class="card"><input id="riskFilter" placeholder="صفِّ المخاطر... مثال: approval أو fallback أو labs" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:#050912;color:var(--txt);font-family:var(--sans)"></div>
+<div class="card" style="margin-top:12px"><table id="riskTable"><thead><tr><th>#</th><th>الخطر</th><th>الأثر</th><th>الموقع</th><th>الإصلاح</th></tr></thead><tbody>
+<tr><td><span class="badge fail">R1 P0</span></td><td><b>fallback تدقيق ثابت مختلق:</b> عند غياب مفتاح النموذج يرجع <code>HIGH/8.5/SQLi CWE-89</code> ثابتاً لأي كود — التقرير سيعرض ثغرة لم تُرصد</td><td>حرج — نتائج كاذبة</td><td><code>gemini.ts:168-190</code></td><td>إرجاع <code>UNAVAILABLE + hypothetical:true</code> أو تمرير الكود لـ semgrep الحقيقي؛ لا ثغرات افتراضية أبداً</td></tr>
+<tr><td><span class="badge fail">R1b P0</span></td><td><b>مسار التشخيص بالنموذج يدعي تعافياً:</b> <code>AUTO_RECOVERED</code> + سجل <code>verified successfully</code> بينما المحرك الحتمي <code>diagnoseAndRecoverError</code> يقول <code>RECOVERY_PROPOSED/no-retry</code></td><td>حرج — يدعي retry لم يحدث</td><td><code>orchestrator.ts:183-193</code></td><td>توحيد الحالة على <code>RECOVERY_PROPOSED</code> وإزالة سطور السجل المختلقة</td></tr>
+<tr><td><span class="badge fail">R2 P0</span></td><td><b>تفويض ناقص:</b> routes التنفيذ والمختبرات والوضع والمشاريع بلا <code>callerHasRole</code></td><td>مرتفع — تصعيد وظيفي</td><td>كل routes عدا approvals/decision</td><td>مصفوفة صلاحيات: تنفيذ/مختبرات ← operator؛ وضع/مشاريع/reset ← admin؛ قرار ← approver</td></tr>
+<tr><td><span class="badge fail">R4 P0</span></td><td><b>وضع dev مفتوح:</b> <code>anonymous → operator+viewer</code> يستطيع التنفيذ</td><td>مرتفع — تنفيذ مكشوف</td><td><code>middleware.ts:111-115</code></td><td>تقييد anonymous لـ <code>viewer</code> فقط + رفض التنفيذ بلا مفتاح</td></tr>
+<tr><td><span class="badge warn">R5 P1</span></td><td>سر المتصفح + <code>trust proxy 1</code> + CSP معطل في dev</td><td>متوسط — تسريب/XSS</td><td><code>app.ts:37,44</code></td><td>auth proxy للإنتاج + تضييق CSP + توثيق التحذير (موثق جزئياً)</td></tr>
+<tr><td><span class="badge warn">R6 P1</span></td><td>حد عام ضيق (60/15m يكسر SPA) ولا حد على التنفيذ/المختبرات</td><td>متوسط — DoS ذاتي/إساءة compute</td><td><code>app.ts:53-58</code></td><td>رفع العام لـ 300/15m + حد خاص 30/15m على execute/labs</td></tr>
+<tr><td><span class="badge warn">R3 P1</span></td><td>سقوف صامتة + كتابة غير منتظرة + حالة في الذاكرة</td><td>متوسط — فقدان أدلة</td><td><code>store/engine/manager/approvals</code></td><td>pagination + عدادات إخلاء + كتابة مستمرة للمشاريع</td></tr>
+<tr><td><span class="badge info">R7 P2</span></td><td>غموض <code>lab defaulting open</code> مقابل <code>ALLOW_EGRESS=false</code> + صورة <code>DVWA:latest</code> متحركة</td><td>منخفض</td><td><code>modes.ts:11</code></td><td>تثبيت digest للصور + توضيح السياسة</td></tr>
+<tr><td><span class="badge info">R8 P2</span></td><td><code>insertMany</code> حلقة N+1 + migrations من cwd + <code>SSL_STRICT</code> قابل للتعطيل</td><td>منخفض</td><td><code>postgres.ts:86</code></td><td>إدخال دفعي + مسار migrations مضمن + تحذير SSL</td></tr>
+<tr><td><span class="badge info">R9 P2</span></td><td>مشروع واحد ثابت + <code>POST /projects</code> بلا تحقق نطاق + <code>prowler</code> في allowlist بلا adapter</td><td>منخفض</td><td><code>store.ts:15</code></td><td>تحقق النطاق عند الإنشاء + إزالة prowler من القوائم</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="quality">
+<h2><span class="n">9</span> جودة الكود والتوثيق</h2>
+<div class="grid g3">
+<div class="card"><h3>إيجابي</h3><ul style="font-size:13px"><li>تعليقات <code>Apache-2.0</code> وربط الكود بالخطة (<code>§</code>) — قابلية تتبع نادرة.</li><li><code>apiFetch</code> مركزي، <code>useCopy</code> يزيل تكراراً وتسرباً، <code>ErrorBoundary</code> لكل تبويب.</li><li>الواجهة تعكس حقيقة backend حرفياً (نص <code>detail</code> verbatim، <code>null ≠ false</code>، التوكن مرة واحدة).</li><li>ثنائية اللغة كاملة + <code>types.ts</code> صارم.</li></ul></div>
+<div class="card"><h3>سلبي قابل للإصلاح</h3><ul style="font-size:13px"><li>49× <code>any</code> — الأثقل <code>orchestrator</code> و <code>claudeProvider</code>.</li><li>مكونات عملاقة (872/783/666 سطر) — قسّم لأجزاء + lazy.</li><li>hook ناقص التبعية في <code>ErrorRecoveryCenter:138</code>.</li><li>حزمة <code>JS 591KB</code> — code-split.</li></ul></div>
+<div class="card"><h3>التوثيق</h3><ul style="font-size:13px"><li><code>README (354 سطر)</code> شامل لكن يذكر 3 وكلاء في سطر بينما الواقع 7 (§2.4).</li><li><code>validation</code> executable غائبة من <code>agentPlatformData.ts</code> — خلاف catalog/runtime بالاتجاهين.</li><li><code>docs/</code> أرشيف V1 (قبل 15 مرحلة) + لافتة توضح ذلك ✓؛ <code>plan.md</code> هو المرجع الحي.</li><li><code>data set.txt</code> غير متتبعة — قرر: تتبع أو حذف.</li><li>المعرفة: <code>A01-A05 + 4 MITRE</code> فقط، BM25 يفقد المرادفات/العربية، لا CWE text.</li></ul></div>
+</div>
+</section>
+
+<section id="recs">
+<h2><span class="n">10</span> التوصيات المرقمة — خطة 30/60/90</h2>
+<div class="grid g3">
+<div class="card"><h3>🔴 P0 — قبل أي نشر (أسبوع)</h3><ol style="font-size:13px"><li>إزالة fallback التدقيق الثابت (<code>gemini.ts:168</code>) — إرجاع <code>503 + hypothetical</code>.</li><li>توحيد حالة التعافي على <code>RECOVERY_PROPOSED</code> (<code>orchestrator.ts:183</code>).</li><li>تقييد anonymous لـ viewer + إضافة <code>callerHasRole</code> على execute/labs/mode/projects.</li><li>تدوير أي مفاتيح كانت في <code>.env</code> والتأكد من <code>.gitignore</code>.</li></ol></div>
+<div class="card"><h3>🟡 P1 — شهر</h3><ol style="font-size:13px"><li>موازنة الحدود + حد خاص للتنفيذ؛ pagination للنتائج/التدقيق.</li><li>إصلاح README (7 وكلاء) + إضافة validation للكتالوج + لافتة docs.</li><li>تقسيم المكونات العملاقة + code-split لتقليل 591KB.</li><li>تثبيت digests لصور المختبرات والأدوات.</li></ol></div>
+<div class="card"><h3>🔵 P2 — ربع</h3><ol style="font-size:13px"><li>استبدال <code>any</code> بأنواع + تفعيل <code>no-explicit-any: error</code> تدريجياً.</li><li>توسيع corpus (A06-A10 + MITRE كاملة) + اختبار عربي.</li><li>أول اختبار واجهة (smoke واحد) + <code>coverage thresholds</code>.</li><li>قرار ZAP (مجلد artifacts قابل للكتابة أو إبقاؤه معلناً فقط).</li></ol></div>
+</div>
+<div class="print-note">💡 <b>أعلى قيمة تالية ليست كوداً جديداً</b> (حسب <code>plan.md §4</code>): إثبات ما هو مكتوب — <code>nmap</code> ضد المختبر عبر الشبكة الداخلية + Postgres حقيقية للترحيلات — ثم البناء فوق أسس متحقق منها.</div>
+</section>
+
+<section id="appendix">
+<h2><span class="n">11</span> الملحق — أدلة وروابط</h2>
+<div class="grid g2">
+<div class="card"><h3>أوامر إعادة الإنتاج</h3><pre>npx tsc --noEmit
+npx eslint .
+npx vitest run --reporter=basic
+npm run build && npm start
+curl -s localhost:7799/api/tools/health
+curl -s localhost:7799/api/labs
+curl -s localhost:7799/api/database/status</pre><button data-copy="npx tsc --noEmit && npx eslint . && npx vitest run --reporter=basic" style="margin-top:8px;padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--txt);cursor:pointer">نسخ الأمر</button></div>
+<div class="card"><h3>ملفات المرجع الدقيق</h3><ul style="font-size:13px"><li><code>server.ts:15</code> — الإقلاع fail-closed</li><li><code>src/server/http/app.ts</code> — التجميع + الحدود</li><li><code>src/server/http/middleware.ts:92</code> — المصادقة</li><li><code>src/server/security/policy.ts</code> — المخاطر من السجل</li><li><code>src/server/security/approvals.ts</code> — التوكن الأحادي</li><li><code>src/server/sandbox/docker.ts:164-171</code> — العزل</li><li><code>src/server/findings/engine.ts</code> — DETECTED/confidence 0</li><li><code>src/server/labs/readiness.ts</code> — probe من داخل الشبكة</li><li><code>src/server/knowledge/retriever.ts</code> — BM25 + citations</li><li><code>plan.md §2.7/§2.8</code> — إصلاحا RUNNING و UNKNOWN المُثبتان</li></ul></div>
+</div>
+<div class="card" style="margin-top:16px"><h3>منهجية المراجعة</h3><p style="font-size:13px">قراءة كاملة للبنية (100 ملف src) + فحص حي للأدوات الثلاثة (tsc/eslint/vitest/build) + بحث <code>TODO/console/any</code> + مراجعة يدوية للملفات الحرجة (middleware, gemini, orchestrator, gateway, docker, findings, approvals) + مطابقة الادعاءات مع <code>plan.md</code> و <code>README.md</code>. لم تُنفذ أدوات فعلية ضد حاويات (تتطلب pull شبكي) ولم تُختبر Postgres حية — مسجلة كفجوة تحقق لا كعيب.</p></div>
+</section>
+
+<footer>
+<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><img src="assets/logo.svg" width="30" height="30" alt="logo"><span>أُعد هذا التقرير آلياً بمراجعة الكود والتشغيل الفعلي — CYBERGUARD AI • 2026-09-17 • <span id="year">2026</span> • الحالة: مخبري ✅ / إنتاجي ⏳ بعد P0</span></div>
+</footer>
+</div>
+<script src="assets/app.js"></script>
+</body>
+</html>

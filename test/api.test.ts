@@ -3,6 +3,7 @@ import request from 'supertest';
 import type { Express } from 'express';
 import { createApp } from '../server';
 import { setRunMode, DEFAULT_RUN_MODE, RUN_MODES } from '../src/server/runtime/index';
+import { resetPrincipals } from '../src/server/security/principal';
 
 let app: Express;
 
@@ -12,6 +13,8 @@ beforeAll(async () => {
 
 afterEach(() => {
   delete process.env.APP_ACCESS_KEY;
+  delete process.env.API_PRINCIPALS;
+  resetPrincipals();
 });
 
 beforeEach(() => {
@@ -79,7 +82,13 @@ describe('run mode API', () => {
   });
 
   it('switches the mode with a valid value', async () => {
-    const res = await request(app).post('/api/runtime/mode').send({ mode: 'pair' });
+    // Switching enforcement layers is an admin act.
+    process.env.API_PRINCIPALS = 'mode-admin:admin:mode-admin-secret';
+    resetPrincipals();
+    const res = await request(app)
+      .post('/api/runtime/mode')
+      .set('x-api-key', 'mode-admin-secret')
+      .send({ mode: 'pair' });
     expect(res.status).toBe(200);
     expect(res.body.current).toBe('pair');
     expect(res.body.previous).toBe(DEFAULT_RUN_MODE);

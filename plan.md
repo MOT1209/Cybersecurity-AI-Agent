@@ -21,6 +21,12 @@
 > that was actually served, with `containerRunning` and `readiness` reported as
 > separate facts. Every defect Step A found is closed; the two probe defects
 > found *while* fixing it are in §2.7.
+>
+> 2026-09-17 (evening): **P0 hardening landed** — §2.10. The audit-code fixed
+> finding (R1), the `AUTO_RECOVERED` fiction (R1b), open-dev execution (R2/R4)
+> and unrotated dev secrets are closed: two new providers (Zen, Groq) behind
+> the chained provider layer, honest-empty contracts, viewer-only anonymous,
+> a role matrix on six routes, fresh dev keys, and 330 green tests.
 
 ---
 
@@ -455,6 +461,45 @@ appears to mean — and this time it was in the verification method, not the
 product. Rule for the remaining Step A items: **give each run its own `PORT` and
 confirm the listening PID (`netstat -ano | grep LISTENING`) before believing any
 response.**
+
+### 2.10 P0 hardening — landed 2026-09-17 (evening)
+
+Four risks from the external review closed in one pass, plus two providers:
+
+- **R1 (audit-code fiction):** `gemini.ts` returned hardcoded `HIGH/8.5/SQLi`
+  for any code with no model. The route now goes through `generateJSON()`, so
+  Zen/Groq/Claude/Gemini all serve it; with no live model it returns an
+  explicitly empty contract (`UNKNOWN/0/[]`, `hypothetical: true`,
+  `retestStatus: UNVERIFIED`). Proven by a new test asserting the empty
+  contract and the absence of `CWE-89`.
+- **R1b (`AUTO_RECOVERED` fiction):** the model-backed diagnose path claimed a
+  verified retry. It now goes through the provider layer and emits
+  `RECOVERY_PROPOSED` + `recoveryExecuted: false` + `retryCount: 0` with a
+  "diagnosis only" log. The deterministic engine is untouched.
+- **R2/R4 (open execution):** `ANONYMOUS_PRINCIPAL` is now `viewer`-only;
+  `requireRole()` (after validation, so malformed input still 400s) gates six
+  routes: execute/labs-start-stop/run-mission ← operator,
+  projects/mode/reset-circuit ← admin. New `test/rbac.test.ts` (8 tests);
+  existing suites authenticate as operator/admin where they execute.
+- **Providers:** `groqProvider.ts` + `zenProvider.ts` on a shared
+  `openaiCompatible.ts` base (fetch-only, zero new deps). Preference
+  zen → groq → claude → gemini → local, with failover chaining in
+  `generate()`/`generateJSON()` (previously first failure fell straight to
+  local). Zen endpoint shape is documented as verify-before-trust
+  (`GET <ZEN_BASE_URL>/models`).
+- **Secrets:** `.env` was never committed and is ignored; `APP_ACCESS_KEY` +
+  `VITE_APP_ACCESS_KEY` rotated to a fresh pair (rebuild the SPA after any
+  rotation — the value is embedded at build time). `GEMINI_API_KEY` rotation
+  is a console action for the owner.
+- **Collision note:** a concurrent session's budget work (`core/budget.ts`,
+  daily limits) landed mid-pass and broke the suite twice (name collision on
+  `enforceMonthlyBudget`, `max: 0` blocking everything on express-rate-limit
+  v7+, no bypass when disabled). Repaired minimally: real re-export, disabled
+  means passthrough, per-request env reads. Their `dailyExecStore` reads a
+  global that nothing writes (module-local map in the registry) — limit
+  currently inert; left for that session.
+- **Measured:** `tsc` 0 errors, `eslint` 0 errors, **330 passed / 0 failed
+  (26 files)**, `npm run build` clean.
 
 ---
 

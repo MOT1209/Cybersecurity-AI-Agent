@@ -18,6 +18,8 @@ import {
   createGlobalApiLimiter,
   createGeminiAiLimiter,
   apiKeyAuthMiddleware,
+  enforceMonthlyBudget,
+  enforcementLimitHandler,
 } from "./middleware";
 import { registerInfraRoutes } from "./routes/infra";
 import { registerSecurityRoutes } from "./routes/security";
@@ -51,6 +53,8 @@ export async function createApp() {
 
   // Mount Global Limiters and Auth for /api
   app.use("/api", createGlobalApiLimiter());
+  app.use("/api", enforceMonthlyBudget());
+  app.use("/api", enforcementLimitHandler("Daily tool execution limit exceeded."));
   app.use("/api", apiKeyAuthMiddleware);
 
   // Mount Strict Limiter on Gemini and Orchestrator execution routes

@@ -22,7 +22,20 @@ import { Readable } from "node:stream";
 import type { LabState } from "../src/server/labs/manager";
 import { SANDBOX_NETWORK_NAME } from "../src/server/sandbox/network";
 import { labProbeImage, normalizeProbeOutput, probeArgs } from "../src/server/labs/readiness";
+import { resetPrincipals } from "../src/server/security/principal";
 import { createApp } from "../server";
+
+/**
+ * Starting/stopping a lab requires the operator role. These HTTP tests
+ * authenticate as one; reads stay anonymous (viewer), which is exactly the
+ * open-dev contract. The afterEach below restores open-dev so the honest
+ * UNKNOWN-when-unreachable assertions keep testing the unauthenticated path.
+ */
+const OPERATOR_KEY = "lab-operator-secret";
+function asOperator() {
+  process.env.API_PRINCIPALS = `lab-operator:operator:${OPERATOR_KEY}`;
+  resetPrincipals();
+}
 
 /**
  * A fake Docker client, in the same spirit as the fake `PgPool` in
@@ -212,7 +225,11 @@ function fakeDocker(
   return { docker, calls, containers, state };
 }
 
-afterEach(() => setLabDockerProvider(null));
+afterEach(() => {
+  setLabDockerProvider(null);
+  delete process.env.API_PRINCIPALS;
+  resetPrincipals();
+});
 
 describe("lab catalog", () => {
   it("only ever offers ids from a fixed allowlist", () => {
@@ -654,18 +671,27 @@ describe("/api/labs", () => {
     const fake = fakeDocker({ answering: false });
     setLabDockerProvider(async () => fake.docker);
     const app = await createApp();
+    asOperator();
 
-    const started = await request(app).post("/api/labs/dvwa/start").expect(200);
+    const started = await request(app)
+      .post("/api/labs/dvwa/start")
+      .set("x-api-key", OPERATOR_KEY)
+      .expect(200);
     expect(started.body.status).toBe("STARTING");
     expect(started.body.containerRunning).toBe(true);
 
-    const listed = (await request(app).get("/api/labs").expect(200)).body.labs as LabState[];
+    const listed = (
+      await request(app).get("/api/labs").set("x-api-key", OPERATOR_KEY).expect(200)
+    ).body.labs as LabState[];
     expect(listed.find((l) => l.id === "dvwa")!.status).toBe("STARTING");
     expect(listed.some((l) => l.status === "RUNNING")).toBe(false);
 
     // Once the app answers, the same endpoint says so, and shows its evidence.
     fake.state.answering = true;
-    const ready = await request(app).get("/api/labs/dvwa").expect(200);
+    const ready = await request(app)
+      .get("/api/labs/dvwa")
+      .set("x-api-key", OPERATOR_KEY)
+      .expect(200);
     expect(ready.body.status).toBe("RUNNING");
     expect(ready.body.readiness.state).toBe("READY");
     expect(ready.body.readiness.httpStatus).toBe(200);
@@ -682,8 +708,12 @@ describe("/api/labs", () => {
   it("answers 503 with the reason when Docker is unreachable", async () => {
     setLabDockerProvider(async () => null);
     const app = await createApp();
+    asOperator();
 
-    const res = await request(app).post("/api/labs/juice-shop/start").expect(503);
+    const res = await request(app)
+      .post("/api/labs/juice-shop/start")
+      .set("x-api-key", OPERATOR_KEY)
+      .expect(503);
     expect(res.body.error).toBe("NOT_AVAILABLE");
     expect(res.body.reason).toMatch(/Docker daemon is unreachable/);
   });
@@ -692,8 +722,12 @@ describe("/api/labs", () => {
     const fake = fakeDocker();
     setLabDockerProvider(async () => fake.docker);
     const app = await createApp();
+    asOperator();
 
-    await request(app).post("/api/labs/alpine/start").expect(400);
+    await request(app)
+      .post("/api/labs/alpine/start")
+      .set("x-api-key", OPERATOR_KEY)
+      .expect(400);
     expect(fake.calls.created).toHaveLength(0);
   });
 
@@ -701,12 +735,19 @@ describe("/api/labs", () => {
     const fake = fakeDocker();
     setLabDockerProvider(async () => fake.docker);
     const app = await createApp();
+    asOperator();
 
-    const started = await request(app).post("/api/labs/juice-shop/start").expect(200);
+    const started = await request(app)
+      .post("/api/labs/juice-shop/start")
+      .set("x-api-key", OPERATOR_KEY)
+      .expect(200);
     expect(started.body.status).toBe("RUNNING");
     expect(fake.calls.created[0].HostConfig.PortBindings).toBeUndefined();
 
-    const stopped = await request(app).post("/api/labs/juice-shop/stop").expect(200);
+    const stopped = await request(app)
+      .post("/api/labs/juice-shop/stop")
+      .set("x-api-key", OPERATOR_KEY)
+      .expect(200);
     expect(stopped.body.status).toBe("STOPPED");
   });
 });

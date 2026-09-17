@@ -103,6 +103,21 @@ export interface ToolRegistryEntry {
   implemented: boolean;
 }
 
+/** Per-IP daily execution counter for the special execution limit. */
+const dailyExecStore = new Map<string, Map<string, number>>(); // ip -> toolId -> count
+
+export function incrementDailyExecution(ip: string, toolId: string): void {
+  const ipStore = dailyExecStore.get(ip) ?? new Map<string, number>();
+  const count = (ipStore.get(toolId) ?? 0) + 1;
+  ipStore.set(toolId, count);
+  dailyExecStore.set(ip, ipStore);
+}
+
+/** Reset daily execution counters (call e.g. at midnight or on server restart). */
+export function resetDailyCounters(): void {
+  dailyExecStore.clear();
+}
+
 /** Registry listing for the API/UI. Zod schemas are not serializable, so the
  *  input schema is omitted rather than emitted as `{}`. */
 export function listTools(): ToolRegistryEntry[] {

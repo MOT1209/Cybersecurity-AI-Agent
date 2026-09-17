@@ -17,7 +17,7 @@ import type { Express, Response } from "express";
 import { validateStringField } from "../../core/index";
 import { ToolNotAvailableError } from "../../core/errors";
 import { listLabStates, getLabState, startLab, stopLab } from "../../labs/manager";
-import { principalOf } from "../middleware";
+import { principalOf, requireRole } from "../middleware";
 
 export function registerLabsRoutes(app: Express) {
   app.get("/api/labs", async (_req, res: Response) => {
@@ -41,6 +41,8 @@ export function registerLabsRoutes(app: Express) {
     if (!idCheck.valid) {
       return res.status(400).json({ error: "VALIDATION_ERROR", message: idCheck.error });
     }
+    // Starting a (deliberately vulnerable) container requires operator.
+    if (!requireRole(req, res, "operator")) return;
     try {
       res.json(await startLab(req.params.id, principalOf(req).id));
     } catch (err) {
@@ -52,6 +54,7 @@ export function registerLabsRoutes(app: Express) {
   });
 
   app.post("/api/labs/:id/stop", async (req, res: Response) => {
+    if (!requireRole(req, res, "operator")) return;
     try {
       res.json(await stopLab(req.params.id, principalOf(req).id));
     } catch (err) {

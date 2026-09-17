@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import request from "supertest";
 
 beforeAll(() => {
@@ -13,9 +13,27 @@ import { createApp } from "../server";
 import { executeTool } from "../src/server/sandbox/index";
 import { validateSecurityGateway } from "../src/server/core/gateway";
 import { wrapUserInput } from "../src/server/llm/index";
+import { resetPrincipals } from "../src/server/security/principal";
 import { NucleiParamsSchema } from "../src/server/tools/nuclei";
 import { NmapParamsSchema } from "../src/server/tools/nmap";
 import { auditLogsStore } from "../src/server/core/store";
+
+/**
+ * Executing a tool requires the operator role. These HTTP tests authenticate
+ * as an operator so they exercise the gateway — not the role gate (which has
+ * its own suite in `rbac.test.ts`). Auth is restored to open-dev after every
+ * test so the unauthenticated contract tests below keep meaning what they say.
+ */
+const OPERATOR_KEY = "security-operator-secret";
+function asOperator() {
+  process.env.API_PRINCIPALS = `security-operator:operator:${OPERATOR_KEY}`;
+  resetPrincipals();
+}
+
+afterEach(() => {
+  delete process.env.API_PRINCIPALS;
+  resetPrincipals();
+});
 
 describe("scope bypass", () => {
   const bypasses = [
@@ -39,8 +57,10 @@ describe("scope bypass", () => {
 
   it("rejects out-of-scope targets over the HTTP API too", async () => {
     const app = await createApp();
+    asOperator();
     const res = await request(app)
       .post("/api/tools/execute")
+      .set("x-api-key", OPERATOR_KEY)
       .send({ toolId: "nmap", target: "8.8.8.8" })
       .expect(403);
     expect(res.body.error).toBe("BLOCKED_BY_GATEWAY");
@@ -63,8 +83,10 @@ describe("tool misuse", () => {
 
   it("denies an unregistered tool rather than passing it through", async () => {
     const app = await createApp();
+    asOperator();
     await request(app)
       .post("/api/tools/execute")
+      .set("x-api-key", OPERATOR_KEY)
       .send({ toolId: "../../bin/sh", target: "192.168.1.50" })
       .expect(400);
   });
@@ -73,6 +95,7 @@ describe("tool misuse", () => {
 describe("permission bypass", () => {
   it("cannot self-approve a high-risk tool with a truthy flag", async () => {
     const app = await createApp();
+    asOperator();
     // Every shape the old `approved: true` bypass could have taken.
     for (const body of [
       { approved: true },
@@ -83,6 +106,7 @@ describe("permission bypass", () => {
     ]) {
       await request(app)
         .post("/api/tools/execute")
+        .set("x-api-key", OPERATOR_KEY)
         .send({ toolId: "zap", target: "192.168.1.50", ...body })
         .expect(428);
     }
@@ -150,13 +174,17 @@ describe("secret and data leakage", () => {
 describe("malformed input", () => {
   it("rejects over-long and wrong-typed fields with 400, not 500", async () => {
     const app = await createApp();
+    asOperator();
     for (const body of [
       { toolId: "nmap", target: "x".repeat(600) },
       { toolId: 12345, target: "192.168.1.50" },
       { toolId: "   ", target: "192.168.1.50" },
       { toolId: "nmap", target: "192.168.1.50", projectId: "p".repeat(200) },
     ]) {
-      const res = await request(app).post("/api/tools/execute").send(body);
+      const res = await request(app)
+        .post("/api/tools/execute")
+        .set("x-api-key", OPERATOR_KEY)
+        .send(body);
       expect(res.status).toBe(400);
     }
   });
@@ -173,6 +201,24 @@ describe("no fabricated results", () => {
     const body = JSON.stringify(res.body);
     // The old endpoint returned invented ports and versions for any target.
     expect(body).not.toMatch(/open\s+ssh|vsftpd|MySQL 8\.0|Nmap scan report/i);
+  });
+
+  it("audit-code with no live model returns an explicitly empty contract, not an invented finding", async () => {
+    const app = await createApp();
+    // No model keys in tests (see test/setup.ts), so the provider layer has
+    // nothing to serve this with. The old code returned a hardcoded
+    // HIGH/8.5/SQLi vulnerability for ANY input here.
+    const res = await request(app)
+      .post("/api/gemini/audit-code")
+      .send({ code: "const q = 'SELECT * FROM users WHERE id = ' + userId;", language: "javascript" })
+      .expect(200);
+    expect(res.body.vulnerabilities).toEqual([]);
+    expect(res.body.overallRisk).toBe("UNKNOWN");
+    expect(res.body.cvssScore).toBe(0);
+    expect(res.body.hypothetical).toBe(true);
+    expect(res.body.retestStatus).toBe("UNVERIFIED");
+    const body = JSON.stringify(res.body);
+    expect(body).not.toMatch(/SQL Injection|CWE-89/i);
   });
 
   it("a recovery diagnosis is a proposal, not a claimed retry", async () => {

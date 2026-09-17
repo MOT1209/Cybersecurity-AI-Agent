@@ -24,7 +24,7 @@ import {
   ApprovalRequiredError,
 } from "../../sandbox/index";
 import { createApprovalRequest } from "../../security/approvals";
-import { principalOf } from "../middleware";
+import { principalOf, requireRole } from "../middleware";
 
 export function registerToolsRoutes(app: Express) {
   /** Tool registry listing. `implemented` distinguishes a real adapter from a
@@ -62,6 +62,10 @@ export function registerToolsRoutes(app: Express) {
     }
 
     const { toolId, target = "192.168.1.50", params = {}, projectId = "proj_alpha_lab", approvalToken } = req.body;
+
+    // Authorization after validation: executing a tool changes the world
+    // (containers, network probes), so it requires the operator role.
+    if (!requireRole(req, res, "operator")) return;
 
     try {
       // Generic adapter dispatch: whichever adapter the registry holds for this

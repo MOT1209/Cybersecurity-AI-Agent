@@ -11,6 +11,11 @@ afterEach(() => {
   delete process.env.AI_PROVIDER;
   delete process.env.GEMINI_API_KEY;
   delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.GROQ_API_KEY;
+  delete process.env.GROQ_MODEL;
+  delete process.env.OPENCODE_API_KEY;
+  delete process.env.OPENCODE_ZEN_API_KEY;
+  delete process.env.ZEN_MODEL;
 });
 
 describe('LLM provider resolution', () => {
@@ -35,6 +40,40 @@ describe('LLM provider resolution', () => {
   it('ignores a pinned provider that is unavailable', () => {
     process.env.AI_PROVIDER = 'claude'; // no key → unusable
     expect(resolveProvider().id).toBe('local');
+  });
+
+  it('prefers zen over groq over claude over gemini when several keys exist', () => {
+    process.env.GEMINI_API_KEY = 'x';
+    process.env.ANTHROPIC_API_KEY = 'y';
+    process.env.GROQ_API_KEY = 'z';
+    process.env.OPENCODE_API_KEY = 'w';
+    expect(resolveProvider().id).toBe('zen');
+    expect(providerStatus().available).toEqual(['zen', 'groq', 'claude', 'gemini', 'local']);
+  });
+
+  it('auto-selects groq when only its key is present', () => {
+    process.env.GROQ_API_KEY = 'z';
+    expect(resolveProvider().id).toBe('groq');
+  });
+
+  it('auto-selects zen when only its key is present', () => {
+    process.env.OPENCODE_API_KEY = 'w';
+    expect(resolveProvider().id).toBe('zen');
+  });
+
+  it('honors a pin to groq or zen', () => {
+    process.env.GEMINI_API_KEY = 'x';
+    process.env.GROQ_API_KEY = 'z';
+    process.env.OPENCODE_API_KEY = 'w';
+    process.env.AI_PROVIDER = 'groq';
+    expect(resolveProvider().id).toBe('groq');
+    process.env.AI_PROVIDER = 'zen';
+    expect(resolveProvider().id).toBe('zen');
+  });
+
+  it('reports zen as unavailable with no key (never half-available)', () => {
+    expect(providerStatus().available).not.toContain('zen');
+    expect(providerStatus().available).not.toContain('groq');
   });
 });
 
