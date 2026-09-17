@@ -21,6 +21,8 @@ import { subfinderAdapter } from "./subfinder";
 import { nucleiAdapter } from "./nuclei";
 import { semgrepAdapter } from "./semgrep";
 import { trivyAdapter } from "./trivy";
+import { volatilityAdapter } from "./volatility";
+import { zapAdapter } from "./zap";
 
 /** Declared-but-unimplemented tools, surfaced honestly to the UI and API. */
 function declared(
@@ -56,12 +58,15 @@ const ADAPTERS: ToolAdapter[] = [
   nucleiAdapter,
   semgrepAdapter,
   trivyAdapter,
+  volatilityAdapter,
+  zapAdapter,
 ];
 
 const DECLARED: ToolDescriptor[] = [
-  declared("zap", "OWASP ZAP Dynamic API Tester", "HIGH", ["dast"], "Dynamic web application testing. Adapter not implemented yet."),
-  declared("prowler", "Prowler Cloud Security Auditing", "MEDIUM", ["cloud-audit"], "Cloud posture auditing. Adapter not implemented yet."),
-  declared("volatility", "Volatility Memory Forensics Engine", "LOW", ["memory-forensics"], "Memory image forensics. Adapter not implemented yet.", false),
+  // Prowler stays declared-only: a cloud audit needs a credential channel and
+  // a cloud-scope gateway branch, neither of which exists yet. Declaring the
+  // gap here is the roadmap, not a promise.
+  declared("prowler", "Prowler Cloud Security Auditing", "MEDIUM", ["cloud-audit"], "Cloud posture auditing. Adapter not implemented yet: blocked on a credential channel and cloud-scope authorization."),
 ];
 
 const adapters = new Map<string, ToolAdapter>(ADAPTERS.map((a) => [a.descriptor.id, a]));

@@ -56,7 +56,8 @@ describe("introspection APIs", () => {
     const res = await request(app).get("/api/tools").expect(200);
     const byId = Object.fromEntries(res.body.tools.map((t: any) => [t.descriptor.id, t]));
     expect(byId.nmap.implemented).toBe(true);
-    expect(byId.zap.implemented).toBe(false);
+    expect(byId.zap.implemented).toBe(true);
+    expect(byId.prowler.implemented).toBe(false);
     // Zod schemas are not serializable and must not be emitted as empty objects.
     expect(byId.nmap.descriptor).not.toHaveProperty("inputSchema");
   });
@@ -69,8 +70,11 @@ describe("introspection APIs", () => {
       expect(["READY", "SIMULATED_ONLY", "NOT_INSTALLED", "NOT_IMPLEMENTED", "SANDBOX_UNAVAILABLE"]).toContain(t.state);
     }
     const zap = res.body.tools.find((t: any) => t.toolId === "zap");
-    expect(zap.state).toBe("NOT_IMPLEMENTED");
-    expect(zap.adapterVersion).toBeNull();
+    expect(zap.state).not.toBe("NOT_IMPLEMENTED");
+    expect(zap.adapterVersion).toBe("1.0.0");
+    const prowler = res.body.tools.find((t: any) => t.toolId === "prowler");
+    expect(prowler.state).toBe("NOT_IMPLEMENTED");
+    expect(prowler.adapterVersion).toBeNull();
   });
 
   it("GET /api/agents lists only registered, executable agents", async () => {

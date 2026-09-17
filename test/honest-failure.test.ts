@@ -48,10 +48,12 @@ describe("tool registry", () => {
     const tools = listTools();
     const nmap = tools.find((t) => t.descriptor.id === "nmap");
     const zap = tools.find((t) => t.descriptor.id === "zap");
+    const prowler = tools.find((t) => t.descriptor.id === "prowler");
     expect(nmap?.implemented).toBe(true);
-    expect(zap?.implemented).toBe(false);
+    expect(zap?.implemented).toBe(true);
+    expect(prowler?.implemented).toBe(false);
     expect(isToolRegistered("nmap")).toBe(true);
-    expect(hasAdapter("zap")).toBe(false);
+    expect(hasAdapter("prowler")).toBe(false);
   });
 
   it("denies an unregistered tool id outright", async () => {

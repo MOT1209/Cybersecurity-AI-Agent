@@ -198,9 +198,9 @@ describe("approval enforcement end to end", () => {
       .send({ toolId: "zap", target: "192.168.1.50", approvalToken: approvedToken() })
       .expect(200);
     expect(run.body.status).toBe("SUCCESS");
-    // SUCCESS here means the simulated run completed. `zap` has no adapter and
-    // SANDBOX_MODE is simulate, so the response must carry that labelling
-    // through the HTTP layer — otherwise a 200 would read as a real ZAP scan.
+    // SUCCESS here means the simulated run completed. SANDBOX_MODE is
+    // simulate, so the response must carry that labelling through the HTTP
+    // layer — otherwise a 200 would read as a real ZAP scan.
     expect(run.body.sandbox.mode).toBe("local-sim");
     expect(run.body.rawOutput).toContain("SIMULATED — NOT A REAL RESULT");
   });

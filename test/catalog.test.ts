@@ -108,23 +108,24 @@ describe("agent catalog statuses", () => {
     expect(df.status).toBe("CATALOG_ONLY");
     expect(df.registered).toBe(false);
     expect(df.reason).toMatch(/no runtime agent/i);
-    expect(df.requiredToolsWithState).toEqual([{ id: "volatility", implemented: false }]);
+    expect(df.requiredToolsWithState).toEqual([{ id: "volatility", implemented: true }]);
   });
 
   it("a registered agent missing a tool adapter is PARTIAL, never IMPLEMENTED", () => {
-    // zap is declared in the registry but has no adapter — a registered agent
-    // that depends on it must surface that gap instead of claiming readiness.
+    // prowler is declared in the registry but has no adapter — a registered
+    // agent that depends on it must surface that gap instead of claiming
+    // readiness.
     agentManager.register({
       id: "tmp_partial_probe",
       describe: () => ({
         id: "tmp_partial_probe",
         name: "Temporary partial probe",
         description: "Test-only agent requiring an unadapted tool.",
-        capabilities: ["dast"],
+        capabilities: ["cloud-audit"],
         skills: [],
-        allowedTools: ["zap"],
+        allowedTools: ["prowler"],
         permissions: [],
-        riskLevel: "HIGH" as const,
+        riskLevel: "MEDIUM" as const,
         timeoutMs: 1000,
         inputSchema: undefined as never,
         outputSchema: undefined as never,
@@ -137,25 +138,25 @@ describe("agent catalog statuses", () => {
     const probe: AgentManifestEntry = {
       id: "tmp_partial_probe",
       ordinal: 99,
-      domain: "web",
+      domain: "cloud",
       nameEn: "Temporary partial probe",
       nameAr: "مسبار مؤقت",
       descriptionEn: "Test-only.",
       descriptionAr: "للاختبار فقط.",
-      capabilities: ["dast"],
+      capabilities: ["cloud-audit"],
       skills: [],
-      requiredTools: ["zap"],
+      requiredTools: ["prowler"],
       permissions: [],
-      riskLevel: "HIGH",
-      inputKind: "target",
+      riskLevel: "MEDIUM",
+      inputKind: "config",
     };
     const entry = toCatalogEntry(probe);
     expect(entry.status).toBe("PARTIAL");
-    expect(entry.reason).toMatch(/zap/);
+    expect(entry.reason).toMatch(/prowler/);
   });
 
   it("the overview names the tool adapters the catalog still needs", () => {
     const overview = catalogOverview(entries);
-    expect(overview.missingAdapters).toEqual(["prowler", "volatility", "zap"]);
+    expect(overview.missingAdapters).toEqual(["prowler"]);
   });
 });

@@ -13,5 +13,7 @@ export * from "./subfinder";
 export * from "./nuclei";
 export * from "./semgrep";
 export * from "./trivy";
+export * from "./volatility";
+export * from "./zap";
 export * from "./registry";
 export * from "./health";
