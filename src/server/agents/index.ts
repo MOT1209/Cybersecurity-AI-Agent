@@ -16,10 +16,16 @@ import { validationAgent } from "./validation/agent";
 import { remediationAgent } from "./remediation/agent";
 import { reportingAgent } from "./reporting/agent";
 import { testingAgent } from "./testing/agent";
+import {
+  AGENT_MANIFEST,
+  catalogValidationContext,
+  validateCatalog,
+} from "./catalog/index";
 
 export * from "./base";
 export * from "./types";
 export * from "./manager";
+export * from "./catalog/index";
 export * from "./recon/agent";
 export * from "./web/agent";
 export * from "./code/agent";
@@ -35,3 +41,10 @@ agentManager.register(validationAgent);
 agentManager.register(remediationAgent);
 agentManager.register(reportingAgent);
 agentManager.register(testingAgent);
+
+// The catalog is the contract: every runtime agent must have an entry and
+// every entry must reference real tools. Refuse to boot when it does not.
+const catalogViolations = validateCatalog(AGENT_MANIFEST, catalogValidationContext());
+if (catalogViolations.length) {
+  throw new Error(`Agent catalog invalid:\n- ${catalogViolations.join("\n- ")}`);
+}

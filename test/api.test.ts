@@ -101,8 +101,24 @@ describe('run mode API', () => {
   });
 });
 
-describe('security gateway', () => {
-  it('denies an explicitly out-of-scope target', async () => {
+describe('agent catalog API', () => {
+  it('reports fifty agents with live statuses and an honest overview', async () => {
+    const res = await request(app).get('/api/catalog');
+    expect(res.status).toBe(200);
+    expect(res.body.overview.count).toBe(50);
+    expect(res.body.overview.implemented).toBe(7);
+    expect(res.body.overview.catalogOnly).toBe(43);
+    expect(res.body.agents).toHaveLength(50);
+    for (const a of res.body.agents) {
+      expect(['IMPLEMENTED', 'PARTIAL', 'CATALOG_ONLY']).toContain(a.status);
+      if (a.status !== 'IMPLEMENTED') expect(typeof a.reason).toBe('string');
+    }
+    const implemented = res.body.agents.filter((a: { status: string }) => a.status === 'IMPLEMENTED');
+    expect(new Set(implemented.map((a: { id: string }) => a.id)).size).toBe(7);
+  });
+});
+
+describe('security gateway', () => {  it('denies an explicitly out-of-scope target', async () => {
     const res = await request(app)
       .post('/api/gateway/check')
       .send({ target: 'production-billing.target-corp.com', toolName: 'nmap' });

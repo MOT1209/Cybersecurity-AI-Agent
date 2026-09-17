@@ -9,6 +9,7 @@
 
 import type { Express, Response } from "express";
 import { agentManager } from "../../agents/index";
+import { catalogEntries, catalogOverview } from "../../agents/catalog/index";
 import { listEvents, auditLogsStore } from "../../core/index";
 
 export function registerIntrospectionRoutes(app: Express) {
@@ -22,6 +23,16 @@ export function registerIntrospectionRoutes(app: Express) {
   /** Agent run history for this process. */
   app.get("/api/runs", (_req, res: Response) => {
     res.json({ runs: agentManager.listRuns() });
+  });
+
+  /**
+   * The fifty-agent catalog merged with live runtime truth. IMPLEMENTED means
+   * a registered agent AND a real adapter for every required tool; everything
+   * else says why it is not.
+   */
+  app.get("/api/catalog", (_req, res: Response) => {
+    const entries = catalogEntries();
+    res.json({ overview: catalogOverview(entries), agents: entries });
   });
 
   /** Event stream buffer, newest first. Filter one mission with ?traceId=. */
