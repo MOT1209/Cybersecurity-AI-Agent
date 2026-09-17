@@ -15,7 +15,12 @@
 >
 > 2026-09-17 (later): **§2.8 is fixed and proven** — the lab API now answers
 > `UNKNOWN` when it cannot read Docker, and the test whose title contradicted its
-> own assertion was rewritten. §2.7 is the remaining open defect from that run.
+> own assertion was rewritten.
+>
+> 2026-09-17 (later still): **§2.7 is fixed too** — `RUNNING` now requires a probe
+> that was actually served, with `containerRunning` and `readiness` reported as
+> separate facts. Every defect Step A found is closed; the two probe defects
+> found *while* fixing it are in §2.7.
 
 ---
 
@@ -35,6 +40,7 @@ places where it did.
 | `npm run build` | last known clean (not re-run 2026-09-16). |
 | Step A item 1 — lab reporting path | **proved 2026-09-17** (§2.3): 12 of 12 reported fields equal to `docker inspect`, the "exists but not running" case and the "removed" case both read correctly, and two isolation claims (no host port, no network egress) held under probes run from outside the platform. |
 | Lab status honesty (§2.8) | **fixed and proved 2026-09-17**: with a dead daemon every lab reports `UNKNOWN` with the reason instead of `STOPPED`; with a live daemon the same field reports the real container state. Measured on the real stack over HTTP, both directions. `test/labs.test.ts` 23/23. |
+| Lab readiness (§2.7) | **fixed and proved 2026-09-17**: `RUNNING` now requires a probe that was served from inside the sandbox network; a container that is up while the app is booting reads `STARTING` with `containerRunning: true`. Measured against real DVWA (container up 56s+ before it answered, `RUNNING` only after a served request). `test/labs.test.ts` 35/35. |
 
 The 253-passed figure this table used to carry predates the two commits that
 landed after the phase table below (phases 16 and 17), so it is stale in both
@@ -277,7 +283,7 @@ code references is cosmetic work, while §2.4 is a *false claim about the presen
 and gets fixed first. This file is the living plan, which is why today's findings
 went here and not into a fifth document in `docs/`.
 
-### 2.7 `RUNNING` is not "ready" — measured, and nothing reports the difference
+### 2.7 `RUNNING` was not "ready" — ✅ **FIXED 2026-09-17**
 
 Step A item 1 was satisfied by every field comparison above, and still left the
 platform saying something a reader can misread. Measured on the second start:
@@ -294,11 +300,90 @@ running on the cyberguard_sandbox network"*) — the problem is the field is nam
 `status`, and `RUNNING` reads as "the lab is up". `STARTING` is declared in
 `LabStatus` and never returned by any path.
 
-Not fixed here on purpose: Step A is a proof step, and closing this needs a
-decision (a readiness probe against the lab's own port, or a separate `ready`
-boolean with its own honest values) rather than a one-line edit. An agent that
-starts a lab and immediately scans it will scan a closed port and record a false
-negative — which is the failure this project exists to remove.
+An agent that starts a lab and immediately scans it will scan a closed port and
+record a false negative — which is the failure this project exists to remove.
+
+**The fix: two facts, reported separately.** `LabState` now carries
+`containerRunning` (from `docker inspect`, `null` when it could not be read) and
+`readiness` (what a probe actually observed), and `status` is derived from both:
+
+| `status` | Condition |
+|---|---|
+| `RUNNING` | container up **and** a request from inside the sandbox network was served |
+| `STARTING` | container up, but the app did not answer (or answered with an error status) |
+| `STOPPED` | no container is running — absence was observed |
+| `UNKNOWN` | undeterminable: no daemon, or readiness could not be observed |
+
+`STARTING` stopped being a dead member and `UNKNOWN` now covers the third case
+honestly instead of being rounded to either side. New module:
+`src/server/labs/readiness.ts` — a probe container on the internal sandbox
+network (`curlimages/curl:8.11.1`, overridable with `LAB_PROBE_IMAGE`) that:
+
+- asks the lab's own `internalUrl`, following redirects and failing on an HTTP
+  error status, so "readiness" means *served a non-error page*, not *accepted a
+  socket*. A stack that emits a `302` while its own database is still starting is
+  correctly `NOT_READY`;
+- publishes no port, drops `ALL` capabilities, read-only rootfs, 64MB / 64 pids /
+  0.25 CPU, `no-new-privileges` — a probe is not privileged;
+- is bounded twice (curl `--max-time 5`, wall clock `LAB_PROBE_TIMEOUT_MS`,
+  default 10s, which kills the container);
+- **never pulls from a status path.** A GET must not cause a network side effect,
+  so `startLab` pulls the probe image and a read that finds it missing reports
+  `UNVERIFIED` with the exact `docker pull` command. That third state is the
+  point: "I could not observe it" is neither `RUNNING` nor `STARTING`;
+- is observed **fresh on every read** — no cache. A cached `READY` is exactly the
+  stale claim this project exists to remove; the cost is one short-lived
+  container per inspection of a *running* lab, and nothing at all for a stopped
+  one. Concurrent reads share one probe (single-flight), because a second
+  container with the same name would fail to create.
+
+`startLab`'s idempotency check moved from `status === "RUNNING"` to
+`containerRunning === true`, and the UI's start/stop buttons with it: treating
+`STARTING` as "not started" would have torn down a lab mid-boot.
+
+**Two defects found only by running it for real** (the Step A lesson, again):
+
+1. **`container.logs()` does not reliably resolve to a Buffer.** Measured in one
+   process: a non-numeric body came back as a Buffer, a body that looks like a
+   number (`%{http_code}` output, e.g. `302`) came back as a **Number**, so
+   `.toString("utf8")` threw `RangeError: toString() radix argument must be
+   between 2 and 36`. The probe reported "could not run" — honest, and useless.
+   Output is now normalized explicitly (Buffer / string / number / stream) by
+   `normalizeProbeOutput`, unit-tested for every shape, and the `-w` output now
+   carries a `HTTP_CODE=` marker so the status is unambiguous.
+2. **curl writes `000` when nothing answered.** That was parsed as http status
+   `0` — a number in a field an operator reads. It is now "no status".
+
+**Executed proof** (real Docker, real DVWA, the platform's own state resolver;
+temporary script, removed after the run — §2.9's own-PORT rule does not apply
+here because no server is started):
+
+```
++2.2s   before start   status=STOPPED   containerRunning=false  readiness=NOT_READY
++63.0s  startLab       status=STARTING  containerRunning=true   readiness=NOT_READY   http=-
+        evidence: the probe could not use the lab (curl exit 7, nothing accepted a
+                  connection on the lab's port): curl: (7) Failed to connect to
+                  dvwa.lab port 80 after 181 ms: Could not connect to server HTTP_CODE=000
++74.8s  poll           status=STARTING  containerRunning=true   readiness=NOT_READY
++96.4s  poll           status=RUNNING   containerRunning=true   readiness=READY  http=200
+        evidence: a request from inside the sandbox network was served (HTTP 200, redirects followed)
++105.5s stopLab        status=STOPPED   containerRunning=false  readiness=NOT_READY
+RESULT: RUNNING-without-READY observations = 0
+```
+
+That is the §2.7 gap, now reported as a gap: the container is up and the lab is
+`STARTING` for as long as the app takes to answer (56s+ on this loaded machine),
+and `RUNNING` appears only once a request is actually served. The probe also
+proves its own vantage point: it resolves `dvwa.lab` from inside the sandbox
+network and reports `Connection refused` while Apache is down.
+
+A second, unplanned observation: mid-session Docker Desktop went unreachable for
+~30s. The platform reported `UNKNOWN` with the reason and refused the start with
+`NOT_AVAILABLE` — §2.8's contract holding during a real daemon outage.
+
+`test/labs.test.ts` **35 passed** (7 new, including the three states, the probe's
+isolation, the marker parsing and the log-shape regression); full suite
+**290 passed / 23 files**; `npx tsc --noEmit` clean; `eslint` 0 errors.
 
 ### 2.8 `STOPPED` was returned when the truthful answer is "unknown" — ✅ **FIXED 2026-09-17**
 
@@ -400,7 +485,8 @@ be trusted in either direction (§2.1).
       nanosecond `startedAt` and the 12-character id, with "container exists but
       is not running" and "no container exists" correctly distinguished, plus two
       isolation probes run from outside the platform. Table and numbers in §2.3.
-      Defects found while executing: §2.7, §2.8 (**fixed 2026-09-17**), §2.9.
+      Defects found while executing: §2.7 and §2.8 (**both fixed 2026-09-17**),
+      §2.9 (rule recorded).
 - [ ] Run `nmap` against the lab over the internal network and confirm
       `result.sandbox` matches reality. First run pulls an image — record the pull
       separately from the run.
@@ -422,9 +508,11 @@ be trusted in either direction (§2.1).
       contract fix, not a design decision: the lab API answers `UNKNOWN` instead
       of `STOPPED` when it cannot read Docker, and the test whose title
       contradicted its assertion was rewritten. Evidence in §2.8.
-- [ ] §2.7 (`RUNNING` reported ~21–25s before the lab actually answers) is still
-      open and *is* a design decision: a readiness probe against the lab's own
-      port, or a separate `ready` field. Not to be rushed.
+- [x] **§2.7 done 2026-09-17**: `RUNNING` now requires a served probe, with
+      `containerRunning` and `readiness` as separate fields. Design and evidence
+      in §2.7. Follow-on worth considering later, not open defects: readiness is
+      re-observed on every read (no cache) — fine at three labs and a manual
+      refresh, but if the UI ever polls, a short TTL is the obvious next step.
 - [ ] `README.md`: seven executable agents, six catalog-only, and note that
       `validation` is executable but not in the catalog (§2.4).
 - [ ] Decide the catalog/runtime disagreement rather than documenting it: either

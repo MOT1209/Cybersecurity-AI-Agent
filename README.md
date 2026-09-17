@@ -239,7 +239,27 @@ execution by API.
 | No published host ports, ever | a vulnerable app reachable from the host is an incident, not a lab |
 | Internal sandbox network only | agents reach it at `http://<name>.lab:<port>`; nothing else can |
 | Unprivileged, no bind mounts, capped memory and pids | the target is hostile by design |
-| Status is read from `docker inspect` | a lab whose container is gone reports `STOPPED`, never `RUNNING` by assumption |
+| Container state is read from `docker inspect` | a lab whose container is gone reports `STOPPED`, never `RUNNING` by assumption |
+| `RUNNING` means a probe observed the app answering | the container is up ~21s before DVWA answers; calling that `RUNNING` made agents scan a closed port |
+
+Each lab reports two separate facts: `containerRunning` (from `docker inspect`,
+`null` when it could not be read) and `readiness` (what a probe actually
+observed). The status is derived from both:
+
+| `status` | Means |
+|---|---|
+| `RUNNING` | the container is up **and** a request from inside the sandbox network was served |
+| `STARTING` | the container is up, the app has not answered yet (or answered with an error status) |
+| `STOPPED` | no container is running — absence was observed |
+| `UNKNOWN` | the verdict could not be determined: no daemon, or readiness could not be observed |
+
+The probe is itself a sandboxed container: same internal network, no published
+port, read-only root, all capabilities dropped, bounded twice (request timeout
+and a wall-clock kill). It follows redirects and fails on an HTTP error status,
+so a stack that emits a `302` while its database is still starting is not yet
+ready. Readiness is observed on every read rather than cached, and a lab whose
+readiness cannot be observed reports `UNKNOWN` — never a rounded `RUNNING` or
+`STARTING`.
 
 With no Docker daemon, `/api/labs` still answers — every lab reads `UNKNOWN`
 with the real reason (never a guessed `STOPPED`), and a start attempt returns

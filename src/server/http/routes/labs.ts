@@ -5,6 +5,12 @@
  * Labs routes (§17). Container state is read from Docker — a lab whose
  * container is gone reports STOPPED, never RUNNING by assumption, and an
  * unreachable daemon reports UNKNOWN, because "not observed" is not "off".
+ *
+ * `RUNNING` is a stronger claim than "the container is up": it means a probe
+ * made from inside the sandbox network was served by the app (§2.7). Between
+ * the container starting and the app answering, a lab reads `STARTING` with
+ * `containerRunning: true` — two facts, reported separately, because collapsing
+ * them made the API call a closed port RUNNING for ~21s.
  */
 
 import type { Express, Response } from "express";
