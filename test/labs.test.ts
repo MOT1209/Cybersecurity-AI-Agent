@@ -266,14 +266,20 @@ describe("lab status is read from Docker, never assumed", () => {
     expect(state.detail).toMatch(/exited/);
   });
 
-  it("says the daemon is unreachable rather than inventing a status", async () => {
+  it("says UNKNOWN when the daemon is unreachable, rather than inventing a status", async () => {
     setLabDockerProvider(async () => null);
 
     const state = await getLabState("juice-shop");
-    expect(state.status).toBe("STOPPED");
+
+    // "I could not read the container" is not "the container is stopped".
+    // Reporting STOPPED here would assert a state nothing ever observed.
+    expect(state.status).toBe("UNKNOWN");
+    expect(state.status).not.toBe("STOPPED");
     expect(state.detail).toMatch(/Docker daemon is unreachable/);
     expect(state.containerId).toBeUndefined();
+    expect(state.startedAt).toBeUndefined();
 
+    // Acting on that ignorance is refused outright, with a reason.
     await expect(startLab("juice-shop")).rejects.toThrow(/NOT_AVAILABLE/);
   });
 
@@ -284,6 +290,8 @@ describe("lab status is read from Docker, never assumed", () => {
       expect(state.internalUrl).toBe(`http://${state.hostname}:${state.port}`);
       expect(state.internalUrl).not.toMatch(/localhost|127\.0\.0\.1|0\.0\.0\.0/);
       expect(state.detail).not.toBe("");
+      // An unreadable daemon must not read as "nothing is running here".
+      expect(state.status).toBe("UNKNOWN");
     }
   });
 
@@ -332,9 +340,12 @@ describe("/api/labs", () => {
       expect(lab).toHaveProperty("name");
       expect(lab).toHaveProperty("difficulty");
       expect(lab).toHaveProperty("internalUrl");
-      expect(["RUNNING", "STOPPED", "STARTING", "UNKNOWN"]).toContain(lab.status);
       expect(typeof lab.detail).toBe("string");
       expect(lab.detail.length).toBeGreaterThan(0);
+      // The provider is deliberately unreachable for this whole suite, so the
+      // only honest status is UNKNOWN. A 200 carrying STOPPED would mean the
+      // list invented a container state it never read.
+      expect(lab.status).toBe("UNKNOWN");
     }
   });
 

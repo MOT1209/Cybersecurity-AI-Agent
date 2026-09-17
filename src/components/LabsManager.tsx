@@ -5,9 +5,10 @@
  * Vulnerable-lab targets page (§17).
  *
  * Every status on this page is read from Docker by GET /api/labs — a lab whose
- * container is gone reports STOPPED, never RUNNING by assumption, and the
- * backend's own `detail` string is shown verbatim rather than being reworded
- * into something more reassuring.
+ * container is gone reports STOPPED, never RUNNING by assumption, an unreachable
+ * daemon reports UNKNOWN rather than masquerading as STOPPED, and the backend's
+ * own `detail` string is shown verbatim rather than being reworded into
+ * something more reassuring.
  *
  * The page deliberately offers no host URL. Labs run on the internal sandbox
  * network with no published ports: the address shown is reachable by the

@@ -339,7 +339,8 @@ export async function createApp() {
 
   /**
    * Lab catalog with REAL container state, read from Docker. A lab whose
-   * container is gone reports STOPPED — never RUNNING by assumption.
+   * container is gone reports STOPPED — never RUNNING by assumption — and an
+   * unreachable daemon reports UNKNOWN, because "not observed" is not "off".
    */
   app.get("/api/labs", async (_req, res) => {
     res.json({ labs: await listLabStates() });

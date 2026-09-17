@@ -2,6 +2,7 @@ export type AgentType =
   | 'recon'
   | 'web_security'
   | 'vuln_analysis'
+  | 'validation'
   | 'code_security'
   | 'network_security'
   | 'cloud_security'

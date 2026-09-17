@@ -93,9 +93,15 @@ Currently registered and executable:
 | `web_security` | nuclei | non-intrusive templates; detections stay unconfirmed |
 | `code_security` | semgrep, trivy | read-only workspace mount, no network |
 | `validation` | *(none)* | evidence review only — no exploitation |
+| `remediation` | *(none)* | guidance synthesis only — never applies changes |
+| `reporting` | *(none)* | report assembly from recorded findings only |
+| `testing` | *(none)* | probes the platform's own controls; holds no tools |
 
-The other nine agents are catalog entries in the UI and are **not** executable;
-`/api/agents` lists only the three above.
+So **seven** agents are registered and executable, listed by `/api/agents` —
+which is the truth the UI cards are labelled against. The rest of the catalog —
+`vuln_analysis`, `network_security`, `cloud_security`, `container_security`,
+`digital_forensics`, `threat_intel` — exists as UI entries with a
+`NOT IMPLEMENTED` badge and no runtime identity.
 
 The orchestrator chains on **evidence, not on the prompt**: the web scan runs
 only when recon actually observed an open HTTP port. When it does not, the step
@@ -235,9 +241,9 @@ execution by API.
 | Unprivileged, no bind mounts, capped memory and pids | the target is hostile by design |
 | Status is read from `docker inspect` | a lab whose container is gone reports `STOPPED`, never `RUNNING` by assumption |
 
-With no Docker daemon, `/api/labs` still answers — every lab reads `STOPPED`
-with the real reason, and a start attempt returns `503 NOT_AVAILABLE` rather
-than pretending.
+With no Docker daemon, `/api/labs` still answers — every lab reads `UNKNOWN`
+with the real reason (never a guessed `STOPPED`), and a start attempt returns
+`503 NOT_AVAILABLE` rather than pretending.
 
 ---
 
@@ -277,7 +283,7 @@ The dashboard reflects backend truth rather than a static catalog:
 | **Tool Registry** | `GET /api/tools/health` | show a tool as usable without a verified adapter, reachable sandbox and present image; `imagePresent: null` renders as "not checked", never as "no" |
 | **Findings** | `GET /api/findings` | present severity as a verdict — severity is the tool's claim, verification status is the platform's, and the validator's rationale, false-positive risks and missing evidence are shown |
 | **Approvals** | `GET /api/approvals` | send a `decidedBy` (the server uses the authenticated principal) or re-show a granted token, which is displayed once and burned on use |
-| **Agents mesh** | `GET /api/agents` | render the twelve-agent catalog as live — each card is labelled `EXECUTABLE` or `NOT IMPLEMENTED` |
+| **Agents mesh** | `GET /api/agents` | render the catalog as live — each card is labelled `EXECUTABLE` or `NOT IMPLEMENTED` against backend truth |
 | **Error Recovery** | `GET /api/error-recovery/events` | claim a retry happened — it is labelled `DIAGNOSIS ONLY` and reports `RECOVERY_PROPOSED` |
 | **Knowledge Base** | `GET /api/knowledge/search` | present an uncited claim — each hit shows its citation, its origin file and the terms that matched, and "nothing matched" is shown as such |
 | **Lab Targets** | `GET /api/labs` | offer a host URL for a vulnerable app — only the sandbox-internal address is shown, and every status is read from Docker (a lab whose container is gone reads `STOPPED`) |

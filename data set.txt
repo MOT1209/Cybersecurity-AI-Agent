@@ -1,0 +1,16 @@
+🔎 Recon / OSINT
+https://github.com/nmap/nmap
+https://github.com/laramies/theHarvester
+https://github.com/UnaPibaGeek/ctfr
+https://github.com/sundowndev/PhoneInfoga
+🛡️ Vulnerability / Web Security
+https://github.com/projectdiscovery/nuclei
+https://github.com/xmendez/wfuzz
+https://github.com/sqlmapproject/sqlmap
+https://github.com/s0md3v/XSStrike
+🌐 Network / Wireless
+https://github.com/wireshark/wireshark
+https://github.com/aircrack-ng/aircrack-ng
+https://github.com/bettercap/bettercap
+📚 المصدر الأساسي الذي فحصناه
+https://github.com/sundowndev/hacker-roadmap

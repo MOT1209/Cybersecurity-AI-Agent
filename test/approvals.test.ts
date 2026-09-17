@@ -105,6 +105,31 @@ describe("gateway policy pipeline", () => {
   });
 });
 
+/**
+ * Mint an approved, unused token through the domain API rather than over HTTP.
+ *
+ * The approval store is the same module-level singleton the routes read, so this
+ * is exactly the state a human's decision produces — it just lets a test assert
+ * one HTTP hop instead of four. The HTTP decision route itself is covered by
+ * "lets a separate human decide it" below, so nothing is bypassed silently.
+ */
+function approvedToken(): string {
+  const opened = createApprovalRequest(base);
+  const decided = decideApproval(opened.id, "APPROVED", "human-operator");
+  expect(decided.ok).toBe(true);
+  return decided.approval!.token!;
+}
+
+/**
+ * These assertions used to share ONE test — create, decide, execute, replay, all
+ * over HTTP — which measured 3194 ms against vitest's 5000 ms default on an idle
+ * machine. Under a full-suite run it crossed the budget and failed as a bare
+ * "Test timed out in 5000ms", naming none of the four claims it was carrying.
+ *
+ * A longer testTimeout would have bought silence; what the test needed was to
+ * stop carrying four claims. Each block below now drives only the hop it
+ * asserts, and each stays within two HTTP requests.
+ */
 describe("approval enforcement end to end", () => {
   beforeEach(() => resetApprovals());
 
@@ -116,38 +141,87 @@ describe("approval enforcement end to end", () => {
     );
   });
 
-  it("428 opens a real approval request a separate human can act on", async () => {
+  it("428 opens a real approval request, and leaks no token to the caller", async () => {
     const app = await createApp();
     const blocked = await request(app)
       .post("/api/tools/execute")
       .set("x-api-key", "scanner-secret")
       .send({ toolId: "zap", target: "192.168.1.50" })
       .expect(428);
+    expect(blocked.body.error).toBe("APPROVAL_REQUIRED");
+    expect(blocked.body.humanApprovalRequired).toBe(true);
     expect(blocked.body.approvalId).toMatch(/^apr_/);
     expect(blocked.body.approval.requestedBy).toBe("scanner-bot");
+    // The whole point of the 428: the requester gets an id to act on later, never
+    // the credential that would let it act now.
     expect(blocked.body.approval.token).toBeUndefined();
+
+    // "A human can act on it" means discoverable by a human, so check the read
+    // path too rather than trusting the id in the reply.
+    const listed = await request(app)
+      .get("/api/approvals")
+      .set("x-api-key", "human-secret")
+      .expect(200);
+    const opened = listed.body.approvals.find(
+      (a: { id: string }) => a.id === blocked.body.approvalId,
+    );
+    expect(opened).toBeDefined();
+    expect(opened.status).toBe("PENDING");
+    expect(opened.token).toBeUndefined();
+  });
+
+  it("lets a separate human decide it, and mints the token only then", async () => {
+    const app = await createApp();
+    const blocked = await request(app)
+      .post("/api/tools/execute")
+      .set("x-api-key", "scanner-secret")
+      .send({ toolId: "zap", target: "192.168.1.50" })
+      .expect(428);
 
     const decided = await request(app)
       .post(`/api/approvals/${blocked.body.approvalId}/decision`)
       .set("x-api-key", "human-secret")
       .send({ decision: "APPROVED" })
       .expect(200);
-    expect(decided.body.approvalToken).toMatch(/^[0-9a-f]{64}$/);
+    expect(decided.body.approval.status).toBe("APPROVED");
+    // The decider is the authenticated principal, not a name from the body.
     expect(decided.body.approval.decidedBy).toBe("human-operator");
+    expect(decided.body.approval.token).toBeUndefined();
+    expect(decided.body.approvalToken).toMatch(/^[0-9a-f]{64}$/);
+  });
 
+  it("executes once the approved token is presented, and says it was a simulation", async () => {
+    const app = await createApp();
     const run = await request(app)
       .post("/api/tools/execute")
       .set("x-api-key", "scanner-secret")
-      .send({ toolId: "zap", target: "192.168.1.50", approvalToken: decided.body.approvalToken })
+      .send({ toolId: "zap", target: "192.168.1.50", approvalToken: approvedToken() })
       .expect(200);
     expect(run.body.status).toBe("SUCCESS");
+    // SUCCESS here means the simulated run completed. `zap` has no adapter and
+    // SANDBOX_MODE is simulate, so the response must carry that labelling
+    // through the HTTP layer — otherwise a 200 would read as a real ZAP scan.
+    expect(run.body.sandbox.mode).toBe("local-sim");
+    expect(run.body.rawOutput).toContain("SIMULATED — NOT A REAL RESULT");
+  });
 
-    // The token is single-use: replaying it fails.
-    await request(app)
+  it("refuses an already-spent token, with 428 and a fresh request to act on", async () => {
+    const app = await createApp();
+    const token = approvedToken();
+    // Spend it through the same consume path the route uses, then present it.
+    // (That the first presentation succeeds is the test above; this is about the
+    // second one, so burning it directly avoids re-running the first.)
+    expect(consumeApproval(token, "zap", "192.168.1.50").ok).toBe(true);
+
+    const replay = await request(app)
       .post("/api/tools/execute")
       .set("x-api-key", "scanner-secret")
-      .send({ toolId: "zap", target: "192.168.1.50", approvalToken: decided.body.approvalToken })
+      .send({ toolId: "zap", target: "192.168.1.50", approvalToken: token })
       .expect(428);
+    expect(replay.body.error).toBe("APPROVAL_REQUIRED");
+    expect(replay.body.approvalId).toMatch(/^apr_/);
+    // A refused replay must not echo the spent credential back.
+    expect(replay.body.approval.token).toBeUndefined();
   });
 
   it("refuses a self-approval with 409 even when the caller holds approver", async () => {

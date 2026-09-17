@@ -18,7 +18,10 @@
  *     agents can reach a lab without widening the project's real scope.
  *
  * Status is read from Docker, never assumed. A lab whose container is gone
- * reports STOPPED, not RUNNING.
+ * reports STOPPED, not RUNNING. And when Docker cannot be reached at all the
+ * answer is UNKNOWN — "I could not tell" is a different fact from "it is
+ * stopped", and collapsing the two makes the platform assert what it does not
+ * know.
  */
 
 import type DockerodeType from "dockerode";
@@ -28,6 +31,12 @@ import { addAuditLog } from "../core/store";
 import { emitEvent } from "../core/events";
 import { ToolNotAvailableError } from "../core/errors";
 
+/**
+ * RUNNING/STOPPED are read from Docker. STARTING is a lab whose container is
+ * up but not yet serving. UNKNOWN means the state could not be determined —
+ * the daemon is unreachable — and must never be reported as STOPPED, which
+ * would claim a stopped container nobody actually observed.
+ */
 export type LabStatus = "RUNNING" | "STOPPED" | "STARTING" | "UNKNOWN";
 
 export interface LabDefinition {
@@ -153,7 +162,9 @@ export async function getLabState(id: string): Promise<LabState> {
   try {
     d = await dockerOrThrow();
   } catch (err) {
-    return { ...base, status: "STOPPED", detail: (err as Error).message };
+    // No daemon means no observation. Reporting STOPPED here would be the
+    // platform inventing a container state it never read.
+    return { ...base, status: "UNKNOWN", detail: (err as Error).message };
   }
 
   try {

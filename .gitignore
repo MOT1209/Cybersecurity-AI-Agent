@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Claude Code local settings (machine-specific, e.g. which MCP servers to attach)
+.claude/settings.local.json

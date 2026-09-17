@@ -38,6 +38,18 @@ export const SYSTEM_AGENTS: AgentMetadata[] = [
     systemPrompt: 'You are the Vulnerability Analysis Agent. Validate raw tool outputs, assess true exploitability, calculate accurate CVSS scores.'
   },
   {
+    id: 'validation',
+    nameEn: 'Validation Agent',
+    nameAr: 'وكيل التحقق من الأدلة',
+    roleDescriptionEn: 'Evidence-based finding validation, false-positive analysis, and confidence scoring without any exploitation.',
+    roleDescriptionAr: 'التحقق من الأدلة المسجلة قبل اعتماد أي اكتشاف، وتحليل الإيجابيات الكاذبة، دون أي استغلال.',
+    icon: 'ShieldCheck',
+    badgeColor: 'text-emerald-400 border-emerald-500/30 bg-emerald-950/40',
+    tools: ['Evidence Review', 'Scope Verifier'],
+    capabilities: ['Evidence Traceability', 'False Positive Analysis', 'Scope Enforcement'],
+    systemPrompt: 'You are the Validation Agent. Judge whether recorded evidence supports a finding; you may only lower confidence, never confirm anything without direct, traceable observations.'
+  },
+  {
     id: 'code_security',
     nameEn: 'Code Security Agent (SAST/SCA)',
     nameAr: 'وكيل أمان الشيفرات البرمجية',
