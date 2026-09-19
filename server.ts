@@ -18,7 +18,30 @@ import {
   diagnoseAndRecoverError,
 } from "./src/server/core/index";
 import { executeTool, GatewayDeniedError, ApprovalRequiredError } from "./src/server/sandbox/index";
-import { buildNmapRequest, summarizeNmapResult, NMAP_TOOL_ID } from "./src/server/tools/index";
+import {
+  buildNmapRequest,
+  summarizeNmapResult,
+  NMAP_TOOL_ID,
+  buildNucleiRequest,
+  summarizeNucleiResult,
+  NUCLEI_TOOL_ID,
+  buildWfuzzRequest,
+  summarizeWfuzzResult,
+  WFUZZ_TOOL_ID,
+  buildTheHarvesterRequest,
+  summarizeTheHarvesterResult,
+  THEHARVESTER_TOOL_ID,
+  buildCtfrRequest,
+  summarizeCtfrResult,
+  CTFR_TOOL_ID,
+  buildSqlmapRequest,
+  summarizeSqlmapResult,
+  SQLMAP_TOOL_ID,
+  buildXsstrikeRequest,
+  summarizeXsstrikeResult,
+  XSSTRIKE_TOOL_ID,
+  ToolInputError,
+} from "./src/server/tools/index";
 import { runMission, buildOrchestratedMultiAgentPlan } from "./src/server/orchestrator/index";
 import { ZodError } from "zod";
 
@@ -290,20 +313,37 @@ export async function createApp() {
     const { toolId, target = "192.168.1.50", params = {}, projectId = "proj_alpha_lab", approved = false } = req.body;
 
     try {
-      let executionResult;
-      if (toolId === NMAP_TOOL_ID) {
-        // Real nmap adapter: validated params, containerized scan, parsed ports.
-        const nmapReq = buildNmapRequest(target, params);
-        const raw = await executeTool({
-          toolId: NMAP_TOOL_ID,
+      // Each adapter validates params + builds a safe argv; executeTool()
+      // enforces the security gateway (scope + high-risk approval) before
+      // running it in the sandbox, regardless of which adapter built the args.
+      const runAdapter = async (req: { args: string[]; image?: string; params?: Record<string, unknown> }) =>
+        executeTool({
+          toolId,
           target,
-          args: nmapReq.args,
-          image: nmapReq.image,
-          params: nmapReq.params,
+          args: req.args,
+          image: req.image,
+          params: req.params,
           projectId,
           approved: approved === true,
         });
-        executionResult = summarizeNmapResult(raw);
+
+      let executionResult;
+      if (toolId === NMAP_TOOL_ID) {
+        executionResult = summarizeNmapResult(await runAdapter(buildNmapRequest(target, params)));
+      } else if (toolId === NUCLEI_TOOL_ID) {
+        executionResult = summarizeNucleiResult(await runAdapter(buildNucleiRequest(target, params)));
+      } else if (toolId === WFUZZ_TOOL_ID) {
+        executionResult = summarizeWfuzzResult(await runAdapter(buildWfuzzRequest(target, params)));
+      } else if (toolId === THEHARVESTER_TOOL_ID) {
+        executionResult = summarizeTheHarvesterResult(await runAdapter(buildTheHarvesterRequest(target, params)));
+      } else if (toolId === CTFR_TOOL_ID) {
+        executionResult = summarizeCtfrResult(await runAdapter(buildCtfrRequest(target)));
+      } else if (toolId === SQLMAP_TOOL_ID) {
+        // High-risk (active exploitation): executeTool() enforces human approval.
+        executionResult = summarizeSqlmapResult(await runAdapter(buildSqlmapRequest(target, params)));
+      } else if (toolId === XSSTRIKE_TOOL_ID) {
+        // High-risk (active exploitation): executeTool() enforces human approval.
+        executionResult = summarizeXsstrikeResult(await runAdapter(buildXsstrikeRequest(target, params)));
       } else {
         // Tools without a dedicated adapter run in the simulation executor.
         executionResult = await executeTool({ toolId, target, params, projectId, approved: approved === true });
@@ -318,6 +358,9 @@ export async function createApp() {
       }
       if (err instanceof ZodError) {
         return res.status(400).json({ error: "VALIDATION_ERROR", message: err.issues.map((i) => i.message).join("; ") });
+      }
+      if (err instanceof ToolInputError) {
+        return res.status(400).json({ error: "VALIDATION_ERROR", message: err.message });
       }
       return res.status(500).json({ error: "TOOL_EXECUTION_ERROR", message: (err as Error).message });
     }

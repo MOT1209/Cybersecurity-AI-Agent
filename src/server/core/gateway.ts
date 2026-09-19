@@ -71,7 +71,7 @@ export function validateSecurityGateway(
   }
 
   // 3. Tool Specific Risk Check
-  const highRiskTools = ["zap", "active_exploit", "bruteforce", "metasploit"];
+  const highRiskTools = ["zap", "active_exploit", "bruteforce", "metasploit", "sqlmap", "xsstrike"];
   const requiresApproval = highRiskTools.includes(toolName.toLowerCase());
 
   addAuditLog("SecurityGateway", `EXECUTE_${toolName.toUpperCase()}`, target, "ALLOWED", `Security policies satisfied. Sandbox execution granted for ${toolName}.`);
