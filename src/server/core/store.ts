@@ -20,7 +20,21 @@ export const projectsStore = [
     targetIps: ["192.168.1.50", "192.168.1.51", "10.0.0.12", "127.0.0.1", "localhost"],
     inScope: ["192.168.1.50", "192.168.1.51", "*.target-corp.lab", "http://192.168.1.50:8080/api/v1/*"],
     outOfScope: ["192.168.1.1", "production-billing.target-corp.com", "8.8.8.8"],
-    allowedTools: ["nmap", "nuclei", "subfinder", "semgrep", "trivy", "zap", "prowler", "volatility"],
+    allowedTools: [
+      "nmap",
+      "nuclei",
+      "subfinder",
+      "semgrep",
+      "trivy",
+      "zap",
+      "prowler",
+      "volatility",
+      "wfuzz",
+      "theharvester",
+      "ctfr",
+      "sqlmap",
+      "xsstrike",
+    ],
     policy: {
       strictSandbox: true,
       requireApprovalForHighRisk: true,
@@ -178,6 +192,11 @@ export const circuitBreakers: Record<string, ToolCircuitBreaker> = {
   zap: { consecutiveFailures: 0, lastFailureTime: 0, state: "CLOSED", cooldownPeriodMs: 30000 },
   trivy: { consecutiveFailures: 0, lastFailureTime: 0, state: "CLOSED", cooldownPeriodMs: 20000 },
   prowler: { consecutiveFailures: 0, lastFailureTime: 0, state: "CLOSED", cooldownPeriodMs: 25000 },
+  wfuzz: { consecutiveFailures: 0, lastFailureTime: 0, state: "CLOSED", cooldownPeriodMs: 20000 },
+  theharvester: { consecutiveFailures: 0, lastFailureTime: 0, state: "CLOSED", cooldownPeriodMs: 20000 },
+  ctfr: { consecutiveFailures: 0, lastFailureTime: 0, state: "CLOSED", cooldownPeriodMs: 20000 },
+  sqlmap: { consecutiveFailures: 0, lastFailureTime: 0, state: "CLOSED", cooldownPeriodMs: 30000 },
+  xsstrike: { consecutiveFailures: 0, lastFailureTime: 0, state: "CLOSED", cooldownPeriodMs: 30000 },
 };
 
 /**

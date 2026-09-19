@@ -23,6 +23,11 @@ import { semgrepAdapter } from "./semgrep";
 import { trivyAdapter } from "./trivy";
 import { volatilityAdapter } from "./volatility";
 import { zapAdapter } from "./zap";
+import { wfuzzAdapter } from "./wfuzz";
+import { theHarvesterAdapter } from "./theharvester";
+import { ctfrAdapter } from "./ctfr";
+import { sqlmapAdapter } from "./sqlmap";
+import { xsstrikeAdapter } from "./xsstrike";
 
 /** Declared-but-unimplemented tools, surfaced honestly to the UI and API. */
 function declared(
@@ -60,6 +65,11 @@ const ADAPTERS: ToolAdapter[] = [
   trivyAdapter,
   volatilityAdapter,
   zapAdapter,
+  wfuzzAdapter,
+  theHarvesterAdapter,
+  ctfrAdapter,
+  sqlmapAdapter,
+  xsstrikeAdapter,
 ];
 
 const DECLARED: ToolDescriptor[] = [
