@@ -46,7 +46,6 @@ export function validateSecurityGateway(
   toolName: string,
   projectId: string = "proj_alpha_lab",
 ): GatewayDecision {
-  const project = projectsStore.find((p) => p.id === projectId) || projectsStore[0];
   const host = extractHost(target);
   const checks: GatewayCheck[] = [];
 
@@ -76,6 +75,41 @@ export function validateSecurityGateway(
       sandboxRequired,
     };
   };
+
+  // 0a. "No scope = no execution": an unrecognized projectId used to fall
+  //     back silently to the first registered project, which meant a caller
+  //     with a typo'd or bogus project id got the DEFAULT lab's authorization
+  //     instead of a denial. That was a fail-OPEN bug, not a convenience.
+  const project = projectsStore.find((p) => p.id === projectId);
+  if (!project) {
+    return deny(
+      "project-scope-exists",
+      `No project/engagement is registered under id "${projectId}"`,
+      `SECURITY GATEWAY ENFORCEMENT: Project "${projectId}" does not exist. No scope means no execution — there is nothing to authorize this request against.`,
+      "OUT_OF_SCOPE",
+    );
+  }
+  checks.push({ name: "project-scope-exists", passed: true, detail: `Project "${project.id}" is registered.` });
+
+  // 0b. Expired engagement authorization denies every execution under this
+  //     project regardless of target or tool. Projects created without an
+  //     `authorization` record (see core/store.ts ProjectAuthorization) are
+  //     not yet held to this check — that gap is real and tracked, not hidden.
+  if (project.authorization && Date.parse(project.authorization.expiresAt) < Date.now()) {
+    return deny(
+      "engagement-not-expired",
+      `Project "${project.id}" authorization expired at ${project.authorization.expiresAt}`,
+      `SECURITY GATEWAY ENFORCEMENT: The authorized engagement window for project "${project.id}" expired on ${project.authorization.expiresAt}. Renew authorization before executing further.`,
+      "OUT_OF_SCOPE",
+    );
+  }
+  if (project.authorization) {
+    checks.push({
+      name: "engagement-not-expired",
+      passed: true,
+      detail: `Engagement authorized until ${project.authorization.expiresAt}.`,
+    });
+  }
 
   // 1a. Filesystem-scoped tools do not have a network target. Host allow/deny
   //     lists are meaningless for them; containment is enforced separately by

@@ -12,6 +12,7 @@ import {
   isPrivateOrLabHost,
   matchesScopeEntry,
   validateSecurityGateway,
+  projectsStore,
 } from "../src/server/core/index";
 import { executeTool, ApprovalRequiredError, GatewayDeniedError } from "../src/server/sandbox/index";
 import { createApprovalRequest, decideApproval } from "../src/server/security/approvals";
@@ -57,6 +58,50 @@ describe("security gateway (hardened)", () => {
   });
   it("denies an out-of-scope host even when smuggled inside a longer string", () => {
     expect(validateSecurityGateway("8.8.8.8.nip.io", "nmap").isAllowed).toBe(false);
+  });
+});
+
+describe("no scope = no execution (project authorization)", () => {
+  it("denies outright when the projectId does not match any registered project", () => {
+    // Previously fell back silently to projectsStore[0] (the default lab),
+    // which meant a typo'd/bogus project id got that project's authorization
+    // instead of a denial — a fail-open bug, not a convenience.
+    const d = validateSecurityGateway("192.168.1.50", "nmap", "proj_totally_unknown");
+    expect(d.isAllowed).toBe(false);
+    expect(d.scopeValidation).toBe("OUT_OF_SCOPE");
+    expect(d.reason).toMatch(/does not exist/);
+  });
+
+  it("denies execution once the project's engagement authorization has expired", () => {
+    projectsStore.push({
+      id: "proj_expired_test",
+      name: "Expired Test Engagement",
+      targetDomain: "expired.lab",
+      targetIps: ["192.168.1.50"],
+      inScope: ["192.168.1.50"],
+      outOfScope: [],
+      authorization: {
+        owner: "test",
+        authorizedBy: "test",
+        expiresAt: "2000-01-01T00:00:00.000Z",
+      },
+      allowedTools: ["nmap"],
+      policy: { strictSandbox: true, requireApprovalForHighRisk: true },
+    });
+    try {
+      const d = validateSecurityGateway("192.168.1.50", "nmap", "proj_expired_test");
+      expect(d.isAllowed).toBe(false);
+      expect(d.scopeValidation).toBe("OUT_OF_SCOPE");
+      expect(d.reason).toMatch(/expired/);
+    } finally {
+      const idx = projectsStore.findIndex((p) => p.id === "proj_expired_test");
+      if (idx >= 0) projectsStore.splice(idx, 1);
+    }
+  });
+
+  it("still allows the default lab project, which carries a far-future authorization", () => {
+    const d = validateSecurityGateway("192.168.1.50", "nmap", "proj_alpha_lab");
+    expect(d.isAllowed).toBe(true);
   });
 });
 

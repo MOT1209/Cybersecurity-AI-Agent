@@ -11,8 +11,45 @@
 
 import { createHash, randomUUID } from "crypto";
 
+/**
+ * Engagement authorization record for a project's scope. This is the
+ * concrete piece of "no scope = no execution": a project with no matching id
+ * or an expired `expiresAt` is denied outright by the gateway, regardless of
+ * target/tool — see core/gateway.ts.
+ *
+ * This is deliberately project-level, not yet a per-target TargetScope object
+ * (targetId/allowedPorts/allowedProtocols/restrictions per host). That finer
+ * grain is real remaining work, not something this file claims to do.
+ */
+export interface ProjectAuthorization {
+  /** Who owns/requested this engagement. */
+  owner: string;
+  /** Who granted the authorization (may equal owner for a self-authorized lab). */
+  authorizedBy: string;
+  /** ISO 8601 timestamp. Once passed, every execution under this project is denied. */
+  expiresAt: string;
+  /** Free-text reference to the signed authorization (ticket id, doc link, contract clause). */
+  reference?: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  targetDomain: string;
+  targetIps: string[];
+  inScope: string[];
+  outOfScope: string[];
+  /** Absent on a project created without one — see gateway.ts's fail-open note. */
+  authorization?: ProjectAuthorization;
+  allowedTools: string[];
+  policy: {
+    strictSandbox: boolean;
+    requireApprovalForHighRisk: boolean;
+  };
+}
+
 // In-Memory Project & Scope State
-export const projectsStore = [
+export const projectsStore: Project[] = [
   {
     id: "proj_alpha_lab",
     name: "Authorized Enterprise Staging Lab",
@@ -20,6 +57,12 @@ export const projectsStore = [
     targetIps: ["192.168.1.50", "192.168.1.51", "10.0.0.12", "127.0.0.1", "localhost"],
     inScope: ["192.168.1.50", "192.168.1.51", "*.target-corp.lab", "http://192.168.1.50:8080/api/v1/*"],
     outOfScope: ["192.168.1.1", "production-billing.target-corp.com", "8.8.8.8"],
+    authorization: {
+      owner: "CyberGuard AI Lab Operator",
+      authorizedBy: "CyberGuard AI Lab Operator",
+      expiresAt: "2030-01-01T00:00:00.000Z",
+      reference: "Internal lab engagement — self-authorized, no external client.",
+    } satisfies ProjectAuthorization,
     allowedTools: [
       "nmap",
       "nuclei",

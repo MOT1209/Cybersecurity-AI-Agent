@@ -95,6 +95,8 @@ describe("gateway policy pipeline", () => {
   it("returns an ordered record of the checks it performed", () => {
     const d = validateSecurityGateway("192.168.1.50", "nmap");
     expect(d.checks.map((c) => c.name)).toEqual([
+      "project-scope-exists",
+      "engagement-not-expired",
       "target-denylist",
       "target-allowlist",
       "project-tool-permission",

@@ -60,9 +60,37 @@ export function registerInfraRoutes(app: Express) {
       return res.status(400).json({ error: "VALIDATION_ERROR", message: targetDomainCheck.error });
     }
 
-    const { name, targetDomain, inScope = [], outOfScope = [] } = req.body;
+    const { name, targetDomain, inScope = [], outOfScope = [], authorization } = req.body;
     // Creating an engagement (new scope!) is an admin act.
     if (!requireRole(req, res, "admin")) return;
+
+    // Authorization is optional at creation (a project without one is not yet
+    // held to the expiration check — see gateway.ts). When the caller does
+    // supply one, validate its shape so a malformed record can't silently be
+    // stored and misread later.
+    let validatedAuthorization: { owner: string; authorizedBy: string; expiresAt: string; reference?: string } | undefined;
+    if (authorization !== undefined) {
+      if (
+        typeof authorization !== "object" ||
+        authorization === null ||
+        typeof authorization.owner !== "string" ||
+        typeof authorization.authorizedBy !== "string" ||
+        typeof authorization.expiresAt !== "string" ||
+        Number.isNaN(Date.parse(authorization.expiresAt))
+      ) {
+        return res.status(400).json({
+          error: "VALIDATION_ERROR",
+          message: "Field 'authorization', when provided, must be { owner: string, authorizedBy: string, expiresAt: ISO-8601 string, reference?: string }.",
+        });
+      }
+      validatedAuthorization = {
+        owner: authorization.owner,
+        authorizedBy: authorization.authorizedBy,
+        expiresAt: authorization.expiresAt,
+        ...(typeof authorization.reference === "string" ? { reference: authorization.reference } : {}),
+      };
+    }
+
     const newProj = {
       id: `proj_${crypto.randomUUID()}`,
       name: name || "New Security Engagement Lab",
@@ -70,6 +98,7 @@ export function registerInfraRoutes(app: Express) {
       targetIps: [targetDomain || "192.168.1.50"],
       inScope,
       outOfScope,
+      ...(validatedAuthorization ? { authorization: validatedAuthorization } : {}),
       allowedTools: ["nmap", "nuclei", "semgrep", "trivy", "zap"],
       policy: { strictSandbox: true, requireApprovalForHighRisk: true },
     };
