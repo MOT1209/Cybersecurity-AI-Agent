@@ -22,6 +22,8 @@ import {
   listSkillLoadFailures,
 } from "../src/server/skills/registry";
 import { SkillManifestSchema } from "../src/server/skills/manifest";
+import { dispatchSkill, SkillNotRegisteredError, SkillNotExecutableError } from "../src/server/skills/dispatcher";
+import { GatewayDeniedError } from "../src/server/sandbox/index";
 
 beforeAll(() => {
   process.env.NODE_ENV = "test";
@@ -231,6 +233,40 @@ describe("registry against a fixture root end-to-end", () => {
     // Restore the real registry so it doesn't leak into other test files.
     await initializeSkillRegistry(undefined, true);
     expect(listSkillLoadFailures()).toEqual([]);
+  });
+});
+
+describe("skill dispatch — the part that was explicitly missing", () => {
+  it("throws for an unregistered skill id, never fabricates a result", async () => {
+    await expect(dispatchSkill("does-not-exist", "192.168.1.50", {})).rejects.toBeInstanceOf(
+      SkillNotRegisteredError,
+    );
+  });
+
+  it("throws for a registered-but-not-executable skill, with the failing reasons attached", async () => {
+    const root = await makeFixtureRoot();
+    await writeSkill(root, "unexecutable-skill", baseManifest({ id: "unexecutable-skill", requiredTools: ["fake-tool"] }));
+    await initializeSkillRegistry(root, true);
+    try {
+      await expect(dispatchSkill("unexecutable-skill", "192.168.1.50", {})).rejects.toBeInstanceOf(
+        SkillNotExecutableError,
+      );
+    } finally {
+      await initializeSkillRegistry(undefined, true);
+    }
+  });
+
+  it("actually runs the underlying tool for a real, executable skill (nmap-recon)", async () => {
+    const result = await dispatchSkill("nmap-recon", "192.168.1.50", {}, { projectId: "proj_alpha_lab" });
+    expect(result.toolId).toBe("nmap");
+    expect(result.status).toBe("SUCCESS");
+    expect(result.structuredData).toHaveProperty("openPortCount");
+  });
+
+  it("still enforces the security gateway — an out-of-scope target is denied, not silently run", async () => {
+    await expect(dispatchSkill("nmap-recon", "8.8.8.8", {}, { projectId: "proj_alpha_lab" })).rejects.toBeInstanceOf(
+      GatewayDeniedError,
+    );
   });
 });
 

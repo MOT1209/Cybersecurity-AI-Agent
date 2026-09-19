@@ -9,4 +9,5 @@ export * from "./manifest";
 export * from "./scanner";
 export * from "./loader";
 export * from "./registry";
+export * from "./dispatcher";
 export * from "./types";

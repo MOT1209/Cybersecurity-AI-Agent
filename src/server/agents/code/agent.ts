@@ -16,10 +16,11 @@ import type { AgentResult } from "../base";
 import type { AgentDescriptor, AgentRunContext } from "../types";
 import { executeTool } from "../../sandbox/index";
 import { resolveWorkspacePath } from "../../security/workspace";
-import { semgrepAdapter, SEMGREP_TOOL_ID } from "../../tools/semgrep";
+import { SEMGREP_TOOL_ID } from "../../tools/semgrep";
 import type { SemgrepFinding } from "../../tools/semgrep";
 import { trivyAdapter, TRIVY_TOOL_ID } from "../../tools/trivy";
 import type { TrivyFinding } from "../../tools/trivy";
+import { dispatchSkill } from "../../skills/index";
 
 export interface CodeInput {
   /** Path relative to SANDBOX_WORKSPACE_ROOT. */
@@ -92,7 +93,9 @@ export const codeDescriptor: AgentDescriptor = {
     "Static analysis and dependency/secret scanning over a contained workspace " +
     "path, with no network access.",
   capabilities: ["static-analysis", "dependency-scan", "secret-detection"],
-  skills: ["code-security.sast", "code-security.dependency-audit"],
+  // "sast-review" is a real, dispatchable Skill Platform id (src/server/skills/definitions/sast-review).
+  // Trivy has no wrapping skill yet — it is still called directly below.
+  skills: ["code-security.sast", "code-security.dependency-audit", "sast-review"],
   allowedTools: [SEMGREP_TOOL_ID, TRIVY_TOOL_ID],
   permissions: ["tool:execute", "workspace:read"],
   riskLevel: "LOW",
@@ -127,20 +130,15 @@ export class CodeAgent extends BaseAgent {
     let rawForReasoning = "";
 
     // semgrep and trivy are independent: one failing must not lose the other.
-    const semgrepReq = semgrepAdapter.build(resolved.containerPath!, input.semgrepParams);
+    // semgrep is dispatched through the Skill Platform ("sast-review") — same
+    // gateway/sandbox enforcement, now via a real skill invocation.
     try {
-      const raw = await executeTool({
-        toolId: SEMGREP_TOOL_ID,
-        target: semgrepReq.target,
-        args: semgrepReq.args,
-        image: semgrepReq.image,
-        params: semgrepReq.params,
+      const res = await dispatchSkill("sast-review", resolved.containerPath!, input.semgrepParams, {
         projectId,
         actor: "CodeAgent",
         traceId: ctx?.traceId,
         workspaceHostPath: resolved.hostPath,
       });
-      const res = semgrepAdapter.parse(raw);
       this.logToolCall(res);
       sast = (res.structuredData.findings as SemgrepFinding[]) ?? [];
       sandboxMode = res.sandbox.mode;

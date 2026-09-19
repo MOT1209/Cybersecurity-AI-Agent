@@ -95,12 +95,29 @@ both `executable: true`. A read-only `/api/skills` + `/api/skills/:id` route
 exposes this. Verified end-to-end against the actual production build
 (`npm run build && node dist/server.cjs`), not just `tsx` dev mode.
 
-**What this explicitly does NOT do**: nothing dispatches a skill. No agent
-or orchestrator step selects or invokes a skill by id — "registered and
-would be runnable" is not the same as "something runs it." That dispatch
-layer, plus reconciling the catalog's pre-existing `skills: string[]` field
-(which currently reuses tool ids as skill ids, e.g. `catalog.ts:36`) with
-this platform's real skill ids, is real remaining work.
+**Update 2 (dispatch now wired for 2 of 7 agents):** `src/server/skills/dispatcher.ts`
+now actually invokes a skill — `dispatchSkill(skillId, target, params, opts)`
+resolves the skill's single required tool via the real tool registry, builds
+the request through that tool's adapter, and runs it through the exact same
+`executeTool()` gateway/sandbox path a direct tool call uses (no bypass).
+`ReconAgent` now calls `dispatchSkill("nmap-recon", ...)` instead of building
+the nmap request itself, and `CodeAgent` calls `dispatchSkill("sast-review",
+...)` for its semgrep step (trivy is still called directly — no skill wraps
+it yet). Verified against the real production build, not just tests: a live
+`/api/orchestrator/run-mission` call produced the audit trail `SecurityGateway
+EXECUTE_NMAP ALLOWED` → `ReconAgent RUN_NMAP COMPLETED`, proving the skill
+path is what actually ran, and a deliberately out-of-scope target through
+`dispatchSkill` still raises `GatewayDeniedError` — the skill front door does
+not weaken enforcement.
+
+**What still doesn't exist**: dispatch only covers these two single-tool
+skills, not a multi-tool pipeline, and only 2 of the 7 registered agents use
+it (`validation`, `remediation`, `reporting`, `testing`, `web` and CodeAgent's
+own trivy step still call tools directly). The catalog's pre-existing
+`skills: string[]` field (which reuses tool ids as skill ids, e.g.
+`catalog.ts:36`) is still unreconciled with this platform's real skill ids —
+`recon`'s and `code_security`'s agent descriptors now list both the old
+free-text label and the real skill id side by side as an interim step.
 
 ## 4. MCP platform
 
@@ -382,7 +399,7 @@ by design, per their own source comments) — consistent with §4's absence and
 |---|---|
 | Agent contracts, manager, dispatch | **Real** — 7 of 50 catalog agents implemented and executable |
 | Agent catalog (50 entries) | **Real as an honesty ledger** — computes IMPLEMENTED/PARTIAL/CATALOG_ONLY live, not hand-labeled |
-| Skill platform | **Real but minimal** — registry/loader/scanner exist and work; 2 real skills; nothing dispatches a skill yet |
+| Skill platform | **Real but partial** — registry/loader/scanner exist and work; 2 real skills, both now genuinely dispatched (recon→nmap-recon, code_security→sast-review); 5 of 7 agents and one of CodeAgent's two tools still bypass it |
 | MCP platform | **Absent** — zero references in the backend |
 | Tool registry + adapters | **Real** — 12 real adapters, 1 honestly declared-only (prowler) |
 | Security gateway / risk policy | **Real** — fail-closed on unregistered tools/targets, ordered checks, audited |

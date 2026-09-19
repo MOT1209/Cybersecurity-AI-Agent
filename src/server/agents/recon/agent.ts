@@ -12,8 +12,7 @@ import { z } from "zod";
 import { BaseAgent } from "../base";
 import type { AgentResult } from "../base";
 import type { AgentDescriptor, AgentRunContext } from "../types";
-import { executeTool } from "../../sandbox/index";
-import { buildNmapRequest, summarizeNmapResult, NMAP_TOOL_ID, nmapImage } from "../../tools/nmap";
+import { dispatchSkill } from "../../skills/index";
 import type { NmapPort } from "../../tools/nmap";
 import { RECON_INSTRUCTION, RECON_SCHEMA_HINT } from "./prompts";
 
@@ -71,7 +70,10 @@ export const reconDescriptor: AgentDescriptor = {
     "Discovers the network attack surface of an authorized target by running " +
     "a sandboxed nmap TCP connect scan and reasoning over the parsed ports.",
   capabilities: ["asset-discovery", "service-discovery", "port-discovery"],
-  skills: ["reconnaissance.service-discovery"],
+  // "nmap-recon" is a real, dispatchable Skill Platform id (src/server/skills/definitions/nmap-recon).
+  // "reconnaissance.service-discovery" is the pre-existing free-text label; kept for now (see
+  // docs/architecture/current-state.md's note on reconciling the two conventions).
+  skills: ["reconnaissance.service-discovery", "nmap-recon"],
   allowedTools: ["nmap"],
   permissions: ["tool:execute", "scope:read"],
   riskLevel: "MEDIUM",
@@ -94,18 +96,14 @@ export class ReconAgent extends BaseAgent {
     if (ctx?.projectId && !input.projectId) input.projectId = ctx.projectId;
     this.remember(input);
 
-    const req = buildNmapRequest(input.target, input.params);
-    const rawResult = await executeTool({
-      toolId: NMAP_TOOL_ID,
-      target: input.target,
-      args: req.args,
-      image: nmapImage(),
-      params: req.params,
+    // Dispatched through the Skill Platform rather than calling the nmap
+    // adapter directly — same gateway/sandbox enforcement either way, but
+    // this is now a real, executed skill invocation, not just a registered one.
+    const result = await dispatchSkill("nmap-recon", input.target, input.params, {
       projectId: input.projectId,
       actor: "ReconAgent",
       traceId: ctx?.traceId,
     });
-    const result = summarizeNmapResult(rawResult);
     this.logToolCall(result);
 
     const openPorts = (result.structuredData.openPorts as NmapPort[]) ?? [];
