@@ -1,0 +1,35 @@
+{
+  "id": "nmap-recon",
+  "name": "Network Reconnaissance via nmap",
+  "version": "1.0.0",
+  "author": "CyberGuard AI Platform Team",
+  "description": "Discovers open TCP ports and services on an authorized target using the platform's real nmap adapter. Enumeration only — no exploitation.",
+  "capabilities": ["port-scan", "service-detection"],
+  "requiredTools": ["nmap"],
+  "requiredMcp": [],
+  "permissions": ["network:scan"],
+  "riskLevel": "MEDIUM",
+  "dependencies": [],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "target": { "type": "string", "description": "In-scope IP, hostname, or URL." },
+      "ports": { "type": "string", "description": "nmap port spec, e.g. '1-1000'." },
+      "serviceDetection": { "type": "boolean" }
+    },
+    "required": ["target"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "openPorts": { "type": "array" },
+      "openPortCount": { "type": "number" }
+    },
+    "required": ["openPorts", "openPortCount"]
+  },
+  "securityPolicy": {
+    "maxRiskLevel": "MEDIUM",
+    "scopeEnforced": true,
+    "alwaysRequireApproval": false
+  }
+}

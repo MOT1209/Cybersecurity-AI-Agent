@@ -1,0 +1,32 @@
+{
+  "id": "sast-review",
+  "name": "Static Application Security Review via Semgrep",
+  "version": "1.0.0",
+  "author": "CyberGuard AI Platform Team",
+  "description": "Runs static analysis over a contained workspace path using the platform's real semgrep adapter. Filesystem-scoped, never touches the network.",
+  "capabilities": ["code-analysis", "sast"],
+  "requiredTools": ["semgrep"],
+  "requiredMcp": [],
+  "permissions": ["filesystem:workspace-read"],
+  "riskLevel": "LOW",
+  "dependencies": [],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "workspacePath": { "type": "string", "description": "Path under SANDBOX_WORKSPACE_ROOT to scan." }
+    },
+    "required": ["workspacePath"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "findings": { "type": "array" }
+    },
+    "required": ["findings"]
+  },
+  "securityPolicy": {
+    "maxRiskLevel": "LOW",
+    "scopeEnforced": true,
+    "alwaysRequireApproval": false
+  }
+}

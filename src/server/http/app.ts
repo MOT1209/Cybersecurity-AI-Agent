@@ -29,10 +29,17 @@ import { registerKnowledgeRoutes } from "./routes/knowledge";
 import { registerToolsRoutes } from "./routes/tools";
 import { registerIntrospectionRoutes } from "./routes/introspection";
 import { registerGeminiRoutes } from "./routes/gemini";
+import { registerSkillsRoutes } from "./routes/skills";
+import { initializeSkillRegistry } from "../skills/index";
 
 dotenv.config();
 
 export async function createApp() {
+  // Discover, schema-validate, and security-scan every skill package once.
+  // Failures are recorded (see /api/skills) rather than thrown — one broken
+  // skill package must not prevent the server from starting.
+  await initializeSkillRegistry();
+
   const app = express();
 
   // Trust proxy for Cloud Run / Nginx reverse proxy environment
@@ -70,6 +77,7 @@ export async function createApp() {
   registerToolsRoutes(app); // tools registry + health + execute
   registerIntrospectionRoutes(app); // agents, runs, events, logs
   registerGeminiRoutes(app); // chat + assistant endpoints
+  registerSkillsRoutes(app); // skill registry listing + detail (read-only)
 
   // Static / dev asset serving. Skipped entirely under NODE_ENV=test so the
   // app can be exercised in isolation by the test suite.

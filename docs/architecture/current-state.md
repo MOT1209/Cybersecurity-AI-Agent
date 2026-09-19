@@ -80,12 +80,27 @@ naming an unregistered tool (47-56), runs `dispatch()` under a timeout race
 
 ## 3. Skill platform
 
-**Absent as working code.** `src/server/skills/types.ts` (38 lines) is a pure
-TypeScript contract with an explicit comment: "The registry is populated in a
-later phase; this file fixes the contract so agents and tools can reference
-it now" (`types.ts:7-8`). No loader, validator, discovery, or versioning
-exists anywhere in `src/server`. The `skills: string[]` field on catalog
-entries is a free-text label, not resolved against anything.
+**Update (post-Phase-0):** a real, minimal Skill Platform now exists under
+`src/server/skills/`: `manifest.ts` (zod schema for on-disk `skill.json`),
+`loader.ts` (discovers `<root>/<id>/skill.json` + `SKILL.md`, validates,
+never coerces a bad package into looking valid), `scanner.ts` (six
+deterministic security checks — required tools are real adapters, no MCP
+dependency since none exists, permissions on a fixed allowlist, dependencies
+resolve, CRITICAL disabled by default, `securityPolicy.maxRiskLevel`
+consistent with the skill's own risk), and `registry.ts` (ties discovery +
+scanning together, computing `isSkillExecutable()` live — same honesty
+pattern as the tool registry and agent catalog). Two real packages exist
+(`nmap-recon`, `sast-review`), both wired to already-real tool adapters and
+both `executable: true`. A read-only `/api/skills` + `/api/skills/:id` route
+exposes this. Verified end-to-end against the actual production build
+(`npm run build && node dist/server.cjs`), not just `tsx` dev mode.
+
+**What this explicitly does NOT do**: nothing dispatches a skill. No agent
+or orchestrator step selects or invokes a skill by id — "registered and
+would be runnable" is not the same as "something runs it." That dispatch
+layer, plus reconciling the catalog's pre-existing `skills: string[]` field
+(which currently reuses tool ids as skill ids, e.g. `catalog.ts:36`) with
+this platform's real skill ids, is real remaining work.
 
 ## 4. MCP platform
 
@@ -367,7 +382,7 @@ by design, per their own source comments) — consistent with §4's absence and
 |---|---|
 | Agent contracts, manager, dispatch | **Real** — 7 of 50 catalog agents implemented and executable |
 | Agent catalog (50 entries) | **Real as an honesty ledger** — computes IMPLEMENTED/PARTIAL/CATALOG_ONLY live, not hand-labeled |
-| Skill platform | **Absent** — type contract only, no runtime |
+| Skill platform | **Real but minimal** — registry/loader/scanner exist and work; 2 real skills; nothing dispatches a skill yet |
 | MCP platform | **Absent** — zero references in the backend |
 | Tool registry + adapters | **Real** — 12 real adapters, 1 honestly declared-only (prowler) |
 | Security gateway / risk policy | **Real** — fail-closed on unregistered tools/targets, ordered checks, audited |
@@ -399,6 +414,12 @@ by design, per their own source comments) — consistent with §4's absence and
    Postgres is logged but not retried or escalated to the caller (§13, §14).
 4. **Knowledge corpus is narrow relative to any "OWASP/MITRE/CWE/NIST/CVE"
    ambition** — real retrieval, thin source coverage (§10).
-5. **No Skill platform, MCP platform, workflow engine, or memory system
-   exist yet** — these are the largest gaps against the target architecture
-   and each is a substantial, separate build, not a small addition.
+5. **No MCP platform, workflow engine, or memory system exist yet** — these
+   remain the largest gaps against the target architecture. A minimal Skill
+   Platform now exists (registry/loader/scanner, 2 real skills) but has no
+   dispatch path — an agent or the orchestrator selecting and invoking a
+   skill by id is still a substantial, separate build.
+6. **The agent catalog's `skills: string[]` field predates the Skill
+   Platform** and currently reuses tool ids as skill ids (e.g.
+   `catalog.ts:36`: `skills: ["nmap", "subfinder"]`). Reconciling that field
+   with real skill ids from `src/server/skills/registry.ts` is unresolved.
