@@ -77,6 +77,7 @@ export const projectsStore: Project[] = [
       "ctfr",
       "sqlmap",
       "xsstrike",
+      "scrapling",
     ],
     policy: {
       strictSandbox: true,

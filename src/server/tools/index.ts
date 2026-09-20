@@ -20,5 +20,6 @@ export * from "./theharvester";
 export * from "./ctfr";
 export * from "./sqlmap";
 export * from "./xsstrike";
+export * from "./scrapling";
 export * from "./registry";
 export * from "./health";

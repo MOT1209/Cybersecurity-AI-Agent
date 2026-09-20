@@ -140,9 +140,18 @@ faking success.
 | nmap, nuclei, wfuzz | MEDIUM | network |
 | zap, sqlmap, xsstrike | HIGH | network |
 
-**1 declared-only tool**: `prowler` (MEDIUM) — the registry comment states
-plainly it's "blocked on a credential channel and a cloud-scope gateway
-branch, neither of which exists yet" (`registry.ts:76-78`).
+**2 declared-only tools**:
+- `prowler` (MEDIUM) — "blocked on a credential channel and a cloud-scope
+  gateway branch, neither of which exists yet" (`registry.ts:76-78`).
+- `scrapling` (MEDIUM) — unlike prowler, its build/parse logic is fully
+  written (`tools/scrapling.ts`), but it's held out of `ADAPTERS` because
+  every other real adapter here captures output via the underlying tool's
+  native stdout mode, and Scrapling's `extract` CLI instead writes to a file
+  whose extension selects the output format. The adapter targets
+  `/dev/stdout` as that file path, which should still land on the captured
+  stream, but that's an assumption about Scrapling's own internal format
+  branching — unverified, because this environment has no Docker daemon to
+  run the image and confirm it. Promote it once a real container run does.
 
 Resource ceiling defaults: 1 CPU / 512MB / 256 pids (`types.ts:22-26`), and a
 tool cannot ask for more than its own descriptor allows — the caller doesn't
@@ -401,7 +410,7 @@ by design, per their own source comments) — consistent with §4's absence and
 | Agent catalog (50 entries) | **Real as an honesty ledger** — computes IMPLEMENTED/PARTIAL/CATALOG_ONLY live, not hand-labeled |
 | Skill platform | **Real but partial** — registry/loader/scanner exist and work; 2 real skills, both now genuinely dispatched (recon→nmap-recon, code_security→sast-review); 5 of 7 agents and one of CodeAgent's two tools still bypass it |
 | MCP platform | **Absent** — zero references in the backend |
-| Tool registry + adapters | **Real** — 12 real adapters, 1 honestly declared-only (prowler) |
+| Tool registry + adapters | **Real** — 12 real adapters, 2 honestly declared-only (prowler: not built yet; scrapling: built but stdout capture unverified) |
 | Security gateway / risk policy | **Real** — fail-closed on unregistered tools/targets, ordered checks, audited |
 | Human approval | **Real** — token-based, self-approval blocked, TTL-bound |
 | Sandbox (Docker) | **Real** — dropped caps, RO rootfs, resource ceilings, isolated network |

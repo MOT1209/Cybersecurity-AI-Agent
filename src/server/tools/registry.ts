@@ -28,6 +28,7 @@ import { theHarvesterAdapter } from "./theharvester";
 import { ctfrAdapter } from "./ctfr";
 import { sqlmapAdapter } from "./sqlmap";
 import { xsstrikeAdapter } from "./xsstrike";
+import { scraplingDescriptor } from "./scrapling";
 
 /** Declared-but-unimplemented tools, surfaced honestly to the UI and API. */
 function declared(
@@ -77,6 +78,14 @@ const DECLARED: ToolDescriptor[] = [
   // a cloud-scope gateway branch, neither of which exists yet. Declaring the
   // gap here is the roadmap, not a promise.
   declared("prowler", "Prowler Cloud Security Auditing", "MEDIUM", ["cloud-audit"], "Cloud posture auditing. Adapter not implemented yet: blocked on a credential channel and cloud-scope authorization."),
+  // Scrapling's real build/parse logic already exists (tools/scrapling.ts) —
+  // unlike prowler, this is not "not written yet." It stays out of ADAPTERS
+  // because its CLI writes output to a file (extension-selected format) and
+  // this platform's sandbox only captures container stdout; the /dev/stdout
+  // redirect it targets is unverified against a real container. Promote by
+  // importing scraplingAdapter here and moving it into ADAPTERS once that's
+  // confirmed with an actual Docker run.
+  scraplingDescriptor,
 ];
 
 const adapters = new Map<string, ToolAdapter>(ADAPTERS.map((a) => [a.descriptor.id, a]));
